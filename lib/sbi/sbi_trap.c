@@ -22,6 +22,58 @@
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
+#include <sbi/sbi_string.h>
+
+extern void  __sbi_just_sret();
+
+struct insn_match {
+	unsigned long mask;
+	unsigned long match;
+};
+
+#define INSN_MATCH_CSRRW	0x1073
+#define INSN_MASK_CSRRW		0x707f
+#define INSN_MATCH_CSRRS	0x2073
+#define INSN_MASK_CSRRS		0x707f
+#define INSN_MATCH_CSRRC	0x3073
+#define INSN_MASK_CSRRC		0x707f
+#define INSN_MATCH_CSRRWI	0x5073
+#define INSN_MASK_CSRRWI	0x707f
+#define INSN_MATCH_CSRRSI	0x6073
+#define INSN_MASK_CSRRSI	0x707f
+#define INSN_MATCH_CSRRCI	0x7073
+#define INSN_MASK_CSRRCI	0x707f
+static const struct insn_match csr_functions[] = {
+	{
+		.mask  = INSN_MASK_CSRRW,
+		.match = INSN_MATCH_CSRRW,
+	},
+	{
+		.mask  = INSN_MASK_CSRRS,
+		.match = INSN_MATCH_CSRRS,
+	},
+	{
+		.mask  = INSN_MASK_CSRRC,
+		.match = INSN_MATCH_CSRRC,
+	},
+	{
+		.mask  = INSN_MASK_CSRRWI,
+		.match = INSN_MATCH_CSRRWI,
+	},
+	{
+		.mask  = INSN_MASK_CSRRSI,
+		.match = INSN_MATCH_CSRRSI,
+	},
+	{
+		.mask  = INSN_MASK_CSRRCI,
+		.match = INSN_MATCH_CSRRCI,
+	},
+	{
+		.mask  = INSN_MASK_WFI,
+		.match = INSN_MATCH_WFI,
+	},
+};
+
 
 static void __noreturn sbi_trap_error(const char *msg, int rc,
 				      ulong mcause, ulong mtval, ulong mtval2,
@@ -169,6 +221,67 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		/* Update VS-mode SSTATUS CSR */
 		csr_write(CSR_VSSTATUS, vsstatus);
 	} else {
+		if (prev_virt) {
+			struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+
+			scratch->storing_vcpu = 1;
+
+			sbi_memcpy(&scratch->vcpu_state, regs, sizeof(struct sbi_trap_regs));
+			sbi_memcpy(&scratch->trap, trap, sizeof(struct sbi_trap_info));
+
+			// TODO: implement all the cases
+			switch (trap->cause) {
+			case CAUSE_VIRTUAL_INST_FAULT:
+				ulong insn = trap->tval;
+				const struct insn_match * ifn;
+
+				bool is_csr = false;
+				for (int i = 0; i < sizeof(csr_functions) / sizeof(struct insn_match); i++) {
+					ifn = &csr_functions[i];
+					if ((insn & ifn->mask) == ifn->match) {
+						is_csr = true;
+						break;
+					}
+				}
+
+				scratch->was_csr_insn = is_csr;
+				ulong saved_value = 0;
+
+				// TODO: clean up this code
+				if (is_csr) {
+					saved_value = GET_RS1(insn, regs);	
+
+					ulong epc = regs->mepc;
+					ulong status = regs->mstatus;
+					ulong statusH = regs->mstatusH;
+
+					sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+					regs->mepc = epc;
+					regs->mstatus = status;
+					regs->mstatusH = statusH;
+
+					*REG_PTR(insn, SH_RS1, regs) = saved_value;
+				} else {
+					ulong epc = regs->mepc;
+					ulong status = regs->mstatus;
+					ulong statusH = regs->mstatusH;
+
+					sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+					regs->mepc = epc;
+					regs->mstatus = status;
+					regs->mstatusH = statusH;
+
+				}
+
+
+				break;
+			}
+
+			regs->mstatus |= MSTATUS_TSR;
+		}
+
 		/* Update S-mode exception info */
 		csr_write(CSR_STVAL, trap->tval);
 		csr_write(CSR_SEPC, trap->epc);
@@ -273,6 +386,7 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		mtinst = csr_read(CSR_MTINST);
 	}
 
+	// This part handles interrupts
 	if (mcause & (1UL << (__riscv_xlen - 1))) {
 		if (sbi_hart_has_extension(sbi_scratch_thishart_ptr(),
 					   SBI_HART_EXT_SMAIA))
@@ -284,6 +398,95 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 			goto trap_error;
 		}
 		return regs;
+	}
+
+
+#if __riscv_xlen == 32
+	bool prev_virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
+#else
+	bool prev_virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
+#endif
+
+	// If CAUSE_ILLEGAL_INSTRUCTION, mtval will be the illegal instruction
+	if (mcause == CAUSE_ILLEGAL_INSTRUCTION && mtval == INSN_SRET && !prev_virt) {
+		struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+
+		if (scratch->storing_vcpu) {
+
+			switch (scratch->trap.cause) {
+				case CAUSE_VIRTUAL_INST_FAULT:
+					ulong sepc = csr_read(CSR_SEPC);
+
+					// Supervisor trying to return to next instruction
+					if (sepc == scratch->vcpu_state.mepc + 4) {
+						// sbi_printf("oops\n");
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
+
+						// TODO: clean up this code
+						if (scratch->was_csr_insn) {
+							ulong orig_insn = scratch->trap.tval;
+
+							ulong reg_value = *REG_PTR(orig_insn, SH_RD, regs);
+
+							ulong epc = regs->mepc;
+							ulong status = regs->mstatus;
+							ulong statusH = regs->mstatusH;
+
+							sbi_memcpy(regs, &scratch->vcpu_state, sizeof(struct sbi_trap_regs));
+
+							regs->mepc = epc;
+							regs->mstatus = status;
+							regs->mstatusH = statusH;
+
+							SET_RD(orig_insn, regs, reg_value);
+						} else {
+							ulong epc = regs->mepc;
+							ulong status = regs->mstatus;
+							ulong statusH = regs->mstatusH;
+
+							sbi_memcpy(regs, &scratch->vcpu_state, sizeof(struct sbi_trap_regs));
+
+							regs->mepc = epc;
+							regs->mstatus = status;
+							regs->mstatusH = statusH;
+						}
+					} else if (sepc == csr_read(CSR_VSTVEC)) {
+						// Supervisor trying to redirect to supervisor trap handler
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
+
+						ulong epc = regs->mepc;
+						ulong status = regs->mstatus;
+						ulong statusH = regs->mstatusH;
+
+						sbi_memcpy(regs, &scratch->vcpu_state, sizeof(struct sbi_trap_regs));
+
+						regs->mepc = epc;
+						regs->mstatus = status;
+						regs->mstatusH = statusH;
+
+						// Redirecting, restore all cpu state I guess
+					} else {
+						// sbi_printf("oops3\n");
+						// regs->mstatus &= ~MSTATUS_TSR;
+						// scratch->storing_vcpu = 0;
+
+						regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPP, PRV_M) ;
+						regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPIE, 0);
+
+						regs->mepc = (ulong) &__sbi_just_sret;
+					}
+
+				break;
+
+			default:
+				regs->mstatus &= ~MSTATUS_TSR;
+				scratch->storing_vcpu = 0;
+			}
+
+			return regs;
+		}
 	}
 
 	switch (mcause) {

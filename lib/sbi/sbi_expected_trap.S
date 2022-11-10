@@ -67,3 +67,8 @@ __sbi_expected_trap_hext:
 	addi	a4, a4, 4
 	csrw	CSR_MEPC, a4
 	mret
+
+	.align 3
+	.global __sbi_just_sret
+__sbi_just_sret:
+	sret
