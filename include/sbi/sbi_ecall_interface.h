@@ -29,6 +29,10 @@
 #define SBI_EXT_HSM				0x48534D
 #define SBI_EXT_SRST				0x53525354
 #define SBI_EXT_PMU				0x504D55
+#define SBI_EXT_SM	0x8000000
+
+/* SBI function IDs for SM extension */
+#define SBI_EXT_SM_SET_SHARED 0x0
 
 /* SBI function IDs for BASE extension*/
 #define SBI_EXT_BASE_GET_SPEC_VERSION		0x0
