@@ -36,6 +36,7 @@
 
 /* SBI function IDs for SM extension */
 #define SBI_EXT_SM_SET_SHARED 0x0
+#define SBI_EXT_SM_BITMAP_AND_HPT_INIT 0x1
 
 /* SBI function IDs for BASE extension*/
 #define SBI_EXT_BASE_GET_SPEC_VERSION		0x0
