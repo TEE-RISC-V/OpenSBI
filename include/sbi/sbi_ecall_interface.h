@@ -37,6 +37,12 @@
 /* SBI function IDs for SM extension */
 #define SBI_EXT_SM_SET_SHARED 0x0
 #define SBI_EXT_SM_BITMAP_AND_HPT_INIT 0x1
+#define SBI_EXT_SM_SET_PTE 0x2
+
+/* SBI sub-function IDs for SM_SET_PTE */
+#define SBI_EXT_SM_SET_PTE_CLEAR 0x0
+#define SBI_EXT_SM_SET_PTE_MEMCPY 0x1
+#define SBI_EXT_SM_SET_PTE_SET_ONE 0x2
 
 /* SBI function IDs for BASE extension*/
 #define SBI_EXT_BASE_GET_SPEC_VERSION		0x0
