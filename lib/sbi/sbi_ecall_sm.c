@@ -17,7 +17,12 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 		ret = sm_set_shared(regs->a0, regs->a1);
 		break;
 	case SBI_EXT_SM_BITMAP_AND_HPT_INIT:
-		ret = bitmap_and_hpt_init(regs->a0, regs->a1, regs->a2, regs->a3);
+		ret = bitmap_and_hpt_init(regs->a0, regs->a1, regs->a2,
+					  regs->a3, regs->a4, regs->a5);
+		break;
+	case SBI_EXT_SM_SET_PTE:
+		ret = sm_set_pte(regs->a0, (unsigned long *)regs->a1, regs->a2,
+				 regs->a3);
 		break;
 	default:
 		ret = SBI_ENOTSUPP;
