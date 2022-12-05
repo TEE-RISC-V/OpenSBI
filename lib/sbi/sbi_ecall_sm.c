@@ -16,6 +16,9 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 	case SBI_EXT_SM_SET_SHARED:
 		ret = sm_set_shared(regs->a0, regs->a1);
 		break;
+	case SBI_EXT_SM_PREPARE_CPU:
+		ret = sm_prepare_cpu(regs->a0, regs->a1);
+		break;
 	default:
 		ret = SBI_ENOTSUPP;
 	}
