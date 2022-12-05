@@ -1,11 +1,13 @@
 #include <sm/sm.h>
 #include <sbi/sbi_console.h>
 
-void sm_init()
+int sm_init()
 {
 	// TODO: set up initial PMP registers
 
 	sbi_printf("\nSM Init\n\n");
+
+  return 0;
 }
 
 int sm_set_shared(uint64_t paddr_start, uint64_t size) {

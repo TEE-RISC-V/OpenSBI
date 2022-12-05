@@ -3,7 +3,7 @@
 
 #include <sbi/sbi_types.h>
 
-void sm_init();
+int sm_init();
 
 /**
  * Set a contiguous memory region as shared region

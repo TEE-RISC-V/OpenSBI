@@ -784,7 +784,8 @@ sbi_hart_switch_mode(unsigned long arg0, unsigned long arg1,
 		}
 	}
 
-	sm_init();
+	// TODO: I think this is in the wrong placed, moved to init_coldboot()
+	// sm_init();
 
 	register unsigned long a0 asm("a0") = arg0;
 	register unsigned long a1 asm("a1") = arg1;
