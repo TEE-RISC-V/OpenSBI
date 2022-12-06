@@ -23,4 +23,13 @@ int sm_set_shared(uint64_t paddr_start, uint64_t size);
  */
 int sm_prepare_cpu(uint64_t vm_id, uint64_t cpu_id);
 
+/**
+ * Preserve a CPU (TODO: Details)
+ *
+ * @param vm_id id of the virtual machine
+ * @param cpu_id id of the vCPU
+ * @return 0 on success, error code on failure
+ */
+int sm_preserve_cpu(uint64_t vm_id, uint64_t cpu_id);
+
 #endif

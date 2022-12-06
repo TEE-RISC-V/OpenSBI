@@ -22,6 +22,7 @@
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
+#include <sbi/sbi_string.h>
 
 extern void __sbi_just_sret();
 
@@ -185,6 +186,26 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		/* Update VS-mode SSTATUS CSR */
 		csr_write(CSR_VSSTATUS, vsstatus);
 	} else {
+		struct sbi_scratch *scratch;
+
+		if (prev_virt) {
+			scratch = sbi_scratch_thishart_ptr();
+			scratch->storing_vcpu = 1;
+
+			sbi_memcpy(&scratch->state.vcpu_state, regs, sizeof(struct sbi_trap_regs));
+			sbi_memcpy(&scratch->state.trap, trap, sizeof(struct sbi_trap_info));
+
+			// sbi_memcpy(scr)
+
+			// TODO: implement all the cases
+			switch (trap->cause) {
+			case CAUSE_VIRTUAL_INST_FAULT:
+				regs->mstatus |= MSTATUS_TSR;
+				break;
+			}
+		}
+
+
 		/* Update S-mode exception info */
 		csr_write(CSR_STVAL, trap->tval);
 		csr_write(CSR_SEPC, trap->epc);
