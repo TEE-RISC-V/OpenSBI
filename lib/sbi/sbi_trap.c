@@ -138,6 +138,20 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 
 	/* Update exception related CSRs */
 	if (next_virt) {
+		struct sbi_scratch *scratch;
+
+		if (prev_virt) {
+			scratch = sbi_scratch_thishart_ptr();
+			scratch->storing_vcpu = 1;
+
+			// TODO: implement all the cases
+			switch (trap->cause) {
+			case CAUSE_VIRTUAL_INST_FAULT:
+				regs->mstatus |= MSTATUS_TSR;
+				break;
+			}
+		}
+
 		/* Update VS-mode exception info */
 		csr_write(CSR_VSTVAL, trap->tval);
 		csr_write(CSR_VSEPC, trap->epc);
