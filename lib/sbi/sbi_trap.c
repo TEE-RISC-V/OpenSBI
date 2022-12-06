@@ -23,6 +23,8 @@
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
 
+extern void __sbi_just_sret();
+
 static void __noreturn sbi_trap_error(const char *msg, int rc,
 				      ulong mcause, ulong mtval, ulong mtval2,
 				      ulong mtinst, struct sbi_trap_regs *regs)
@@ -299,6 +301,43 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		}
 		return regs;
 	}
+
+#if __riscv_xlen == 32
+	bool prev_virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
+#else
+	bool prev_virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
+#endif
+
+	if (mcause == CAUSE_ILLEGAL_INSTRUCTION && mtval == INSN_SRET && !prev_virt) {
+		struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+		if (scratch->storing_vcpu) {
+			struct vcpu_state *state = &scratch->state;
+			switch (state->trap.cause) {
+				case CAUSE_VIRTUAL_INST_FAULT:
+					ulong sepc = csr_read(CSR_SEPC);
+					// Supervisor trying to return to next instruction
+
+					if (sepc == state->vcpu_state.mepc + 4) {
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
+					} else if (sepc == csr_read(CSR_VSTVEC)) {
+						// Supervisor trying to redirect to supervisor trap handler
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
+					} else {
+						regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPP, PRV_M) ;
+						regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPIE, 0);
+						regs->mepc = (ulong) &__sbi_just_sret;
+					}
+				break;
+			default:
+				regs->mstatus &= ~MSTATUS_TSR;
+				scratch->storing_vcpu = 0;
+			}
+			return regs;
+		}
+	}
+
 
 	switch (mcause) {
 	case CAUSE_ILLEGAL_INSTRUCTION:
