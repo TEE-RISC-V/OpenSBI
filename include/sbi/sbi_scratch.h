@@ -81,6 +81,8 @@ struct sbi_scratch {
 	unsigned long options;
 
 	bool storing_vcpu;
+	unsigned long vm_id;
+	unsigned long cpu_id;
 	struct vcpu_state state;
 };
 

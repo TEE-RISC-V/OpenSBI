@@ -105,6 +105,12 @@ int sbi_ecall_handler(struct sbi_trap_regs *regs)
 	unsigned long out_val = 0;
 	bool is_0_1_spec = 0;
 
+	if (regs->a7 == SBI_EXT_SM) {
+		if (regs->a6 == SBI_EXT_SM_PREPARE_CPU) {
+			regs->mstatus |= MSTATUS_TSR;
+		}
+	}
+
 	ext = sbi_ecall_find_extension(extension_id);
 	if (ext && ext->handle) {
 		ret = ext->handle(extension_id, func_id,

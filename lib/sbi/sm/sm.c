@@ -23,11 +23,22 @@ int sm_set_shared(uint64_t paddr_start, uint64_t size) {
 }
 
 int sm_prepare_cpu(uint64_t vm_id, uint64_t cpu_id) {
+  // TODO: make this thread safe
+  
+  // sbi_printf("HELLO2 %lu %lu\n", vm_id, cpu_id);
   if (cpu_id >= STORED_STATES) {
     return 1;
   }
 
   struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+
+  if (scratch->storing_vcpu != 0) {
+    sbi_printf("sm error1 %u %lu %lu %lu %lu\n", scratch->storing_vcpu, scratch->vm_id, scratch->cpu_id, vm_id, cpu_id);
+  }
+
+  scratch->storing_vcpu = 1;
+  scratch->vm_id = 1;
+  scratch->cpu_id = 1;
 
   sbi_memcpy(&scratch->state, &states[cpu_id], sizeof(struct vcpu_state));
   return 0;
@@ -38,11 +49,17 @@ int sm_preserve_cpu(uint64_t vm_id, uint64_t cpu_id) {
   //   sbi_printf("sm_prepare_cpu(0x%lx, 0x%lx) is called\n", vm_id, cpu_id);
   // }
 
-    if (cpu_id >= STORED_STATES) {
+  if (cpu_id >= STORED_STATES) {
     return 1;
   }
 
   struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+
+  if (scratch->storing_vcpu != 1) {
+    sbi_printf("sm error2\n");
+  }
+
+  scratch->storing_vcpu = 0;
 
   sbi_memcpy(&states[cpu_id], &scratch->state, sizeof(struct vcpu_state));
 

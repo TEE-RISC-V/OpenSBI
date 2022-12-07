@@ -150,7 +150,7 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 			// TODO: implement all the cases
 			switch (trap->cause) {
 			case CAUSE_VIRTUAL_INST_FAULT:
-				regs->mstatus |= MSTATUS_TSR;
+				// regs->mstatus |= MSTATUS_TSR;
 				break;
 			}
 		}
@@ -200,7 +200,7 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 			// TODO: implement all the cases
 			switch (trap->cause) {
 			case CAUSE_VIRTUAL_INST_FAULT:
-				regs->mstatus |= MSTATUS_TSR;
+				// regs->mstatus |= MSTATUS_TSR;
 				break;
 			}
 		}
@@ -332,13 +332,14 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 	if (mcause == CAUSE_ILLEGAL_INSTRUCTION && mtval == INSN_SRET && !prev_virt) {
 		struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 		if (scratch->storing_vcpu) {
+			// sbi_printf("did this reach here?...\n");
 			struct vcpu_state *state = &scratch->state;
 			switch (state->trap.cause) {
 				case CAUSE_VIRTUAL_INST_FAULT:
 					ulong sepc = csr_read(CSR_SEPC);
 					// Supervisor trying to return to next instruction
 
-					if (sepc == state->vcpu_state.mepc + 4) {
+					if (sepc == state->vcpu_state.mepc + 4 || sepc == state->vcpu_state.mepc) {
 						regs->mstatus &= ~MSTATUS_TSR;
 						scratch->storing_vcpu = 0;
 					} else if (sepc == csr_read(CSR_VSTVEC)) {
@@ -346,9 +347,15 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 						regs->mstatus &= ~MSTATUS_TSR;
 						scratch->storing_vcpu = 0;
 					} else {
-						regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPP, PRV_M) ;
-						regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPIE, 0);
-						regs->mepc = (ulong) &__sbi_just_sret;
+						sbi_printf("BRUH 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
+						// sbi_printf("does this still happen...\n");
+						// regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPP, PRV_M) ;
+						// regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPIE, 0);
+						// regs->mepc = (ulong) &__sbi_just_sret;
+
+						// TODO: make sure this happens only once per vCPU, after it has been initialized
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
 					}
 				break;
 			default:
