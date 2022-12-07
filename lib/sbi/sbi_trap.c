@@ -26,6 +26,54 @@
 
 extern void __sbi_just_sret();
 
+struct insn_match {
+	unsigned long mask;
+	unsigned long match;
+};
+#define INSN_MATCH_CSRRW	0x1073
+#define INSN_MASK_CSRRW		0x707f
+#define INSN_MATCH_CSRRS	0x2073
+#define INSN_MASK_CSRRS		0x707f
+#define INSN_MATCH_CSRRC	0x3073
+#define INSN_MASK_CSRRC		0x707f
+#define INSN_MATCH_CSRRWI	0x5073
+#define INSN_MASK_CSRRWI	0x707f
+#define INSN_MATCH_CSRRSI	0x6073
+#define INSN_MASK_CSRRSI	0x707f
+#define INSN_MATCH_CSRRCI	0x7073
+#define INSN_MASK_CSRRCI	0x707f
+
+static const struct insn_match csr_functions[] = {
+	{
+		.mask  = INSN_MASK_CSRRW,
+		.match = INSN_MATCH_CSRRW,
+	},
+	{
+		.mask  = INSN_MASK_CSRRS,
+		.match = INSN_MATCH_CSRRS,
+	},
+	{
+		.mask  = INSN_MASK_CSRRC,
+		.match = INSN_MATCH_CSRRC,
+	},
+	{
+		.mask  = INSN_MASK_CSRRWI,
+		.match = INSN_MATCH_CSRRWI,
+	},
+	{
+		.mask  = INSN_MASK_CSRRSI,
+		.match = INSN_MATCH_CSRRSI,
+	},
+	{
+		.mask  = INSN_MASK_CSRRCI,
+		.match = INSN_MATCH_CSRRCI,
+	},
+	// {
+	// 	.mask  = INSN_MASK_WFI,
+	// 	.match = INSN_MATCH_WFI,
+	// },
+};
+
 static void __noreturn sbi_trap_error(const char *msg, int rc,
 				      ulong mcause, ulong mtval, ulong mtval2,
 				      ulong mtinst, struct sbi_trap_regs *regs)
@@ -123,6 +171,7 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 #endif
 
 	/* Update hypervisor CSRs if going to HS-mode */
+	// TODO: make this use a fixed constant rather than something that can a CSR modified by the hypervisor
 	if (misa_extension('H') && !next_virt) {
 		hstatus = csr_read(CSR_HSTATUS);
 		if (prev_virt) {
@@ -141,20 +190,6 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 
 	/* Update exception related CSRs */
 	if (next_virt) {
-		struct sbi_scratch *scratch;
-
-		if (prev_virt) {
-			scratch = sbi_scratch_thishart_ptr();
-			scratch->storing_vcpu = 1;
-
-			// TODO: implement all the cases
-			switch (trap->cause) {
-			case CAUSE_VIRTUAL_INST_FAULT:
-				// regs->mstatus |= MSTATUS_TSR;
-				break;
-			}
-		}
-
 		/* Update VS-mode exception info */
 		csr_write(CSR_VSTVAL, trap->tval);
 		csr_write(CSR_VSEPC, trap->epc);
@@ -195,12 +230,52 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 			sbi_memcpy(&scratch->state.vcpu_state, regs, sizeof(struct sbi_trap_regs));
 			sbi_memcpy(&scratch->state.trap, trap, sizeof(struct sbi_trap_info));
 
-			// sbi_memcpy(scr)
-
 			// TODO: implement all the cases
 			switch (trap->cause) {
 			case CAUSE_VIRTUAL_INST_FAULT:
-				// regs->mstatus |= MSTATUS_TSR;
+				ulong insn = trap->tval;
+				
+				bool is_csr = false;
+				const struct insn_match *ifn;
+				for (int i = 0; i < sizeof(csr_functions) / sizeof(struct insn_match); i++) {
+					ifn = &csr_functions[i];
+					if ((insn & ifn->mask) == ifn->match) {
+						is_csr = true;
+						break;
+					}
+				}
+
+				scratch->state.was_csr_insn = is_csr;
+				ulong saved_value = 0;
+
+				// TODO: clean up this code
+				if (is_csr) {
+					saved_value = GET_RS1(insn, regs);	
+
+					ulong epc = regs->mepc;
+					ulong status = regs->mstatus;
+					ulong statusH = regs->mstatusH;
+
+					sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+					regs->mepc = epc;
+					regs->mstatus = status;
+					regs->mstatusH = statusH;
+
+					*REG_PTR(insn, SH_RS1, regs) = saved_value;
+				} else {
+					ulong epc = regs->mepc;
+					ulong status = regs->mstatus;
+					ulong statusH = regs->mstatusH;
+
+					sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+					regs->mepc = epc;
+					regs->mstatus = status;
+					regs->mstatusH = statusH;
+
+				}
+
 				break;
 			}
 		}
@@ -331,21 +406,64 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 
 	if (mcause == CAUSE_ILLEGAL_INSTRUCTION && mtval == INSN_SRET && !prev_virt) {
 		struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+
 		if (scratch->storing_vcpu) {
-			// sbi_printf("did this reach here?...\n");
 			struct vcpu_state *state = &scratch->state;
 			switch (state->trap.cause) {
 				case CAUSE_VIRTUAL_INST_FAULT:
 					ulong sepc = csr_read(CSR_SEPC);
 					// Supervisor trying to return to next instruction
 
-					if (sepc == state->vcpu_state.mepc + 4 || sepc == state->vcpu_state.mepc) {
+					if (sepc == state->vcpu_state.mepc + 4) {
 						regs->mstatus &= ~MSTATUS_TSR;
 						scratch->storing_vcpu = 0;
+
+						// TODO: clean up this code
+						if (state->was_csr_insn) {
+							ulong orig_insn = state->trap.tval;
+
+							ulong reg_value = *REG_PTR(orig_insn, SH_RD, regs);
+
+							ulong epc = regs->mepc;
+							ulong status = regs->mstatus;
+							ulong statusH = regs->mstatusH;
+
+							sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
+
+							regs->mepc = epc;
+							regs->mstatus = status;
+							regs->mstatusH = statusH;
+
+							SET_RD(orig_insn, regs, reg_value);
+						} else {
+							// sbi_printf("HELLOTHERE\n");
+							ulong epc = regs->mepc;
+							ulong status = regs->mstatus;
+							ulong statusH = regs->mstatusH;
+
+							sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
+
+							regs->mepc = epc;
+							regs->mstatus = status;
+							regs->mstatusH = statusH;
+						}
 					} else if (sepc == csr_read(CSR_VSTVEC)) {
+						// sbi_printf("HELLOTHERE 2\n");
 						// Supervisor trying to redirect to supervisor trap handler
 						regs->mstatus &= ~MSTATUS_TSR;
 						scratch->storing_vcpu = 0;
+
+						ulong epc = regs->mepc;
+						ulong status = regs->mstatus;
+						ulong statusH = regs->mstatusH;
+
+						sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
+
+						regs->mepc = epc;
+						regs->mstatus = status;
+						regs->mstatusH = statusH;
+
+						// Redirecting, restore all cpu state I guess
 					} else {
 						sbi_printf("BRUH 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
 						// sbi_printf("does this still happen...\n");
@@ -358,9 +476,18 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 						scratch->storing_vcpu = 0;
 					}
 				break;
-			default:
-				regs->mstatus &= ~MSTATUS_TSR;
-				scratch->storing_vcpu = 0;
+
+				case CAUSE_FETCH_GUEST_PAGE_FAULT:
+				case CAUSE_STORE_GUEST_PAGE_FAULT:
+				case CAUSE_LOAD_GUEST_PAGE_FAULT:
+					regs->mstatus &= ~MSTATUS_TSR;
+					scratch->storing_vcpu = 0;
+				break;
+
+				default:
+					regs->mstatus &= ~MSTATUS_TSR;
+					scratch->storing_vcpu = 0;
+					break;
 			}
 			return regs;
 		}
