@@ -10,6 +10,8 @@
 #include <sbi/riscv_locks.h>
 #include <sbi/riscv_encoding.h>
 #include <sbi/sbi_ecall_interface.h>
+#include <sbi/sbi_pmp.h>
+#include <sbi/sbi_math.h>
 
 // TODO: more levels
 #include <sbi/sbi_bitops.h>
@@ -80,15 +82,18 @@ static const struct insn_match csr_functions[] = {
 
 static struct vcpu_state states[VM_BUCKETS][STORED_STATES];
 static spinlock_t global_lock = SPIN_LOCK_INITIALIZER;
+unsigned int next_pmp_idx;
+void update_min_usable_pmp_id(unsigned int pmp_idx)
+{
+	next_pmp_idx = pmp_idx;
+}
 
-
-int sm_init()
+void sm_init()
 {
 	// TODO: set up initial PMP registers
 
 	sbi_printf("\nSM Init\n\n");
 
-  return 0;
 }
 
 uintptr_t hpt_pmd_start = 0;
@@ -109,10 +114,34 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 	hpt_pte_start = hpt_pte_start_;
 
 	r = init_bitmap(bitmap_start, bitmap_size);
-	if (r)
+	if (r) {
+		sbi_printf(
+			"bitmap_and_hpt_init: bitmap init failed (error %d)\n",
+			r);
 		return r;
-	// TODO: init hpt and check mappings
-	// TODO: set up PMP registers
+	}
+
+	// TODO: check hpt mappings
+
+	r = set_pmp_and_sync(next_pmp_idx++, 0, bitmap_start,
+			     log2roundup(bitmap_size));
+	if (r) {
+		sbi_printf(
+			"bitmap_and_hpt_init: PMP for bitmap init failed (error %d)\n",
+			r);
+		return r;
+	}
+
+	r = set_pmp_and_sync(next_pmp_idx++, 0, hpt_start,
+			     log2roundup(hpt_size));
+	if (r) {
+		sbi_printf(
+			"bitmap_and_hpt_init: PMP for HPT Area init failed (error %d)\n",
+			r);
+		return r;
+	}
+
+	sbi_printf("PMP set up for bitmap and HPT Area\n");
 
 	return 0;
 }

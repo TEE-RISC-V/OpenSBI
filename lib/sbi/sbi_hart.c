@@ -328,6 +328,8 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
 		}
 	}
 
+	update_min_usable_pmp_id(pmp_idx);
+
 	return 0;
 }
 
@@ -790,8 +792,7 @@ sbi_hart_switch_mode(unsigned long arg0, unsigned long arg1,
 		}
 	}
 
-	// TODO: I think this is in the wrong placed, moved to init_coldboot()
-	// sm_init();
+	sm_init();
 
 	register unsigned long a0 asm("a0") = arg0;
 	register unsigned long a1 asm("a1") = arg1;

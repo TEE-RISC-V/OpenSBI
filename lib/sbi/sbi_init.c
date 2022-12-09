@@ -27,6 +27,7 @@
 #include <sbi/sbi_tlb.h>
 #include <sbi/sbi_version.h>
 #include <sm/sm.h>
+#include <sbi/sbi_pmp.h>
 
 #define BANNER                                              \
 	"   ____                    _____ ____ _____\n"     \
@@ -291,6 +292,12 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
 		sbi_hart_hang();
 	}
 
+	rc = sbi_pmp_init(scratch, TRUE);
+	if (rc) {
+		sbi_printf("%s: pmp ipi init failed (error %d)\n", __func__, rc);
+		sbi_hart_hang();
+	}
+
 	rc = sbi_tlb_init(scratch, TRUE);
 	if (rc) {
 		sbi_printf("%s: tlb init failed (error %d)\n", __func__, rc);
@@ -306,12 +313,6 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
 	rc = sbi_ecall_init();
 	if (rc) {
 		sbi_printf("%s: ecall init failed (error %d)\n", __func__, rc);
-		sbi_hart_hang();
-	}
-
-	rc = sm_init();
-	if (rc) {
-		sbi_printf("%s: sm init failed (error %d)\n", __func__, rc);
 		sbi_hart_hang();
 	}
 
@@ -392,6 +393,10 @@ static void init_warm_startup(struct sbi_scratch *scratch, u32 hartid)
 		sbi_hart_hang();
 
 	rc = sbi_ipi_init(scratch, FALSE);
+	if (rc)
+		sbi_hart_hang();
+
+	rc = sbi_pmp_init(scratch, FALSE);
 	if (rc)
 		sbi_hart_hang();
 

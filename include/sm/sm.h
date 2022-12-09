@@ -4,7 +4,9 @@
 #include <sbi/sbi_types.h>
 #include <sbi/sbi_trap.h>
 
-int sm_init();
+void sm_init();
+
+void update_min_usable_pmp_id(unsigned int pmp_idx);
 
 /**
  * Initialize the bitmap and HPT Area.
