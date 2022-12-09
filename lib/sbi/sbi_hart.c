@@ -326,6 +326,8 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
 		}
 	}
 
+	update_min_usable_pmp_id(pmp_idx);
+
 	return 0;
 }
 

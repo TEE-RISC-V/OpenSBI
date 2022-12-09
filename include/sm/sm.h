@@ -5,6 +5,8 @@
 
 void sm_init();
 
+void update_min_usable_pmp_id(unsigned int pmp_idx);
+
 /**
  * Initialize the bitmap and HPT Area.
  * 1. Initialize the data structure.
