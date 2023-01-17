@@ -232,6 +232,12 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 
 			// TODO: implement all the cases
 			switch (trap->cause) {
+			case CAUSE_FETCH_ACCESS:
+			case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
+			case CAUSE_FETCH_GUEST_PAGE_FAULT:
+			case CAUSE_LOAD_GUEST_PAGE_FAULT:
+			case CAUSE_STORE_GUEST_PAGE_FAULT:
+				break;
 			case CAUSE_VIRTUAL_INST_FAULT:
 				ulong insn = trap->tval;
 				
@@ -277,7 +283,19 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 				}
 
 				break;
+			default:
+				ulong epc = regs->mepc;
+				ulong status = regs->mstatus;
+				ulong statusH = regs->mstatusH;
+
+				sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+				regs->mepc = epc;
+				regs->mstatus = status;
+				regs->mstatusH = statusH;
+				break;
 			}
+
 		}
 
 
@@ -408,10 +426,21 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
 		if (scratch->storing_vcpu) {
+			ulong sepc = csr_read(CSR_SEPC);
+
 			struct vcpu_state *state = &scratch->state;
 			switch (state->trap.cause) {
+				case CAUSE_FETCH_ACCESS:
+				case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
+				case CAUSE_FETCH_GUEST_PAGE_FAULT:
+				case CAUSE_LOAD_GUEST_PAGE_FAULT:
+				case CAUSE_STORE_GUEST_PAGE_FAULT:
+					regs->mstatus &= ~MSTATUS_TSR;
+					scratch->storing_vcpu = 0;
+				break;
+
 				case CAUSE_VIRTUAL_INST_FAULT:
-					ulong sepc = csr_read(CSR_SEPC);
+					// ulong sepc = csr_read(CSR_SEPC);
 					// Supervisor trying to return to next instruction
 
 					if (sepc == state->vcpu_state.mepc + 4) {
@@ -476,17 +505,52 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 						scratch->storing_vcpu = 0;
 					}
 				break;
+			default:
+				sbi_printf("I AM HERE\n");
+					// ulong sepc = csr_read(CSR_SEPC);
+					// Supervisor trying to return to next instruction
 
-				case CAUSE_FETCH_GUEST_PAGE_FAULT:
-				case CAUSE_STORE_GUEST_PAGE_FAULT:
-				case CAUSE_LOAD_GUEST_PAGE_FAULT:
-					regs->mstatus &= ~MSTATUS_TSR;
-					scratch->storing_vcpu = 0;
-				break;
+					if (sepc == state->vcpu_state.mepc + 4) {
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
 
-				default:
-					regs->mstatus &= ~MSTATUS_TSR;
-					scratch->storing_vcpu = 0;
+						ulong epc = regs->mepc;
+						ulong status = regs->mstatus;
+						ulong statusH = regs->mstatusH;
+
+						sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
+
+						regs->mepc = epc;
+						regs->mstatus = status;
+						regs->mstatusH = statusH;
+					} else if (sepc == csr_read(CSR_VSTVEC)) {
+						// sbi_printf("HELLOTHERE 2\n");
+						// Supervisor trying to redirect to supervisor trap handler
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
+
+						ulong epc = regs->mepc;
+						ulong status = regs->mstatus;
+						ulong statusH = regs->mstatusH;
+
+						sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
+
+						regs->mepc = epc;
+						regs->mstatus = status;
+						regs->mstatusH = statusH;
+
+						// Redirecting, restore all cpu state I guess
+					} else {
+						sbi_printf("BRUH 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
+						// sbi_printf("does this still happen...\n");
+						// regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPP, PRV_M) ;
+						// regs->mstatus = INSERT_FIELD(regs->mstatus, MSTATUS_MPIE, 0);
+						// regs->mepc = (ulong) &__sbi_just_sret;
+
+						// TODO: make sure this happens only once per vCPU, after it has been initialized
+						regs->mstatus &= ~MSTATUS_TSR;
+						scratch->storing_vcpu = 0;
+					}
 					break;
 			}
 			return regs;
