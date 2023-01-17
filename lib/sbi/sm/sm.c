@@ -31,6 +31,7 @@ uint64_t get_vm_id() {
 }
 
 struct vcpu_state* get_vcpu_state(unsigned long vm_id, uint64_t cpu_id) {
+  // TODO: make this handle "conflicts" properly
   return &states[vm_id % VM_BUCKETS][cpu_id];
 }
 
