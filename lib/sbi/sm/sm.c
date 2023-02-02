@@ -91,25 +91,28 @@ void update_min_usable_pmp_id(unsigned int pmp_idx)
 void sm_init()
 {
 	// TODO: set up initial PMP registers
-
 	sbi_printf("\nSM Init\n\n");
 
 }
 
+bool check_enabled  = false;
+uintptr_t hpt_start = 0, hpt_end = 0;
 uintptr_t hpt_pmd_start = 0;
 uintptr_t hpt_pte_start = 0;
 
 int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
-			uintptr_t hpt_start, uint64_t hpt_size,
+			uintptr_t hpt_start_, uint64_t hpt_size,
 			uintptr_t hpt_pmd_start_, uintptr_t hpt_pte_start_)
 {
 	sbi_printf(
 		"bitmap_and_hpt_init: bitmap_start: 0x%lx, bitmap_size: 0x%lx, hpt_start: 0x%lx, hpt_size: 0x%lx, hpt_pmd_start: 0x%lx, hpt_pte_start: 0x%lx\n",
-		(uint64_t)bitmap_start, bitmap_size, (uint64_t)hpt_start,
+		(uint64_t)bitmap_start, bitmap_size, (uint64_t)hpt_start_,
 		hpt_size, (uint64_t)hpt_pmd_start_, (uint64_t)hpt_pte_start_);
 
 	int r;
 
+	hpt_start     = hpt_start_;
+	hpt_end	      = hpt_start + hpt_size;
 	hpt_pmd_start = hpt_pmd_start_;
 	hpt_pte_start = hpt_pte_start_;
 
@@ -120,8 +123,6 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 			r);
 		return r;
 	}
-
-	// TODO: check hpt mappings
 
 	r = set_pmp_and_sync(next_pmp_idx++, 0, bitmap_start,
 			     log2roundup(bitmap_size));
@@ -143,6 +144,14 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 
 	sbi_printf("PMP set up for bitmap and HPT Area\n");
 
+	return 0;
+}
+
+int monitor_init()
+{
+	// TODO: check hpt mappings
+	check_enabled = true;
+	sbi_printf("\nSM Monitor Init\n\n");
 	return 0;
 }
 
@@ -452,10 +461,13 @@ inline int check_huge_pt(uintptr_t pte_addr, uintptr_t pte_src, int *page_num)
  * @param addr physical address of the entry
  * @param pte the new value of the entry
  * @param page_num The number of pages to be set
+ * @return 0 on success, negative error code on failure
  */
-void set_single_pte(unsigned long *addr, unsigned long pte, size_t page_num)
+int set_single_pte(unsigned long *addr, unsigned long pte, size_t page_num)
 {
+	// sbi_printf("set_single_pte (addr: 0x%lx, pte: 0x%lx, page_num: %lu)\n", (unsigned long)addr, pte, page_num);
 	*((unsigned long *)addr) = pte;
+	return 0;
 }
 
 /**
@@ -464,32 +476,43 @@ void set_single_pte(unsigned long *addr, unsigned long pte, size_t page_num)
  * @param addr physical address of the entry
  * @param pte the new value of the entry
  * @param page_num The number of pages to be set
+ * @return 0 on success, negative error code on failure
  */
-void check_set_single_pte(unsigned long *addr, unsigned long pte,
-			  size_t page_num)
+int check_set_single_pte(unsigned long *addr, unsigned long pte,
+			 size_t page_num)
 {
-	// TODO: check
-	set_single_pte(addr, pte, page_num);
+	if (unlikely(check_enabled == false)) {
+		set_single_pte(addr, pte, page_num);
+		return 0;
+	}
+	if (hpt_start &&
+	    ((uintptr_t)addr < hpt_start || (uintptr_t)addr >= hpt_end)) {
+		sbi_printf(
+			"sm_set_pte: addr outside HPT (addr: 0x%lx, pte: 0x%lx, page_num: %lu)\n",
+			(unsigned long)addr, pte, page_num);
+		return -1;
+	}
+	// TODO: check pte
+	return set_single_pte(addr, pte, page_num);
 }
 
 int sm_set_pte(unsigned long sub_fid, unsigned long *addr,
 	       unsigned long pte_or_src, size_t size)
 {
 	// TODO: lock?
-	int ret;
+	int ret = 0;
 	switch (sub_fid) {
 	case SBI_EXT_SM_SET_PTE_CLEAR:
 		for (size_t i = 0; i < size / sizeof(uintptr_t); ++i, ++addr) {
 			set_single_pte(addr, 0, 0);
 		}
-		ret = 0;
 		break;
 	case SBI_EXT_SM_SET_PTE_MEMCPY:
 		// TODO: check
 		if (size % 8) {
 			ret = -1;
 			sbi_printf(
-				"sm_set_pte: SBI_EXT_SM_SET_PTE_MEMCPY: size align failed (addr: 0x%lx, src: 0x%lx, size: %ld)\n",
+				"sm_set_pte: SBI_EXT_SM_SET_PTE_MEMCPY: size align failed (addr: 0x%lx, src: 0x%lx, size: %lu)\n",
 				(unsigned long)addr, pte_or_src, size);
 		}
 		int pte_num = 1;
@@ -497,16 +520,19 @@ int sm_set_pte(unsigned long sub_fid, unsigned long *addr,
 		size_t page_num = size >> 3;
 		for (size_t i = 0; i < page_num; ++i, ++addr) {
 			uintptr_t pte = *((uintptr_t *)pte_or_src + i);
-			set_single_pte(addr, pte,
-				       (!IS_PGD(pte) && (pte & PTE_V)) ? pte_num
-								       : 0);
+			if (unlikely(check_set_single_pte(
+				    addr, pte,
+				    (!IS_PGD(pte) && (pte & PTE_V)) ? pte_num
+								    : 0))) {
+				ret = -1;
+				break;
+			}
 		}
-		ret = 0;
 		break;
 	case SBI_EXT_SM_SET_PTE_SET_ONE:
-		// TODO: check
-		*addr = pte_or_src;
-		ret   = 0;
+		ret = check_set_single_pte(addr, pte_or_src,
+					   !IS_PGD(pte_or_src) &&
+						   (pte_or_src & PTE_V));
 		break;
 	default:
 		ret = -1;
