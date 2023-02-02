@@ -24,6 +24,9 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 		ret = sm_set_pte(regs->a0, (unsigned long *)regs->a1, regs->a2,
 				 regs->a3);
 		break;
+	case SBI_EXT_SM_MONITOR_INIT:
+		ret = monitor_init();
+		break;
 	default:
 		ret = SBI_ENOTSUPP;
 	}

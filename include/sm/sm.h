@@ -26,6 +26,13 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 			uintptr_t hpt_pmd_start, uintptr_t hpt_pte_start);
 
 /**
+ * Enable monitoring HPT Area
+ *
+ * @return 0 on success, negative error code on failure
+ */
+int monitor_init();
+
+/**
  * Set a contiguous memory region as shared region
  *
  * @param paddr_start physical address of the start of the region
