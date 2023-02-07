@@ -916,6 +916,7 @@
 					 (s32)(((insn) >> 7) & 0x1f))
 #define MASK_FUNCT3			0x7000
 
+#define PTE_PPN_SHIFT 10
 #define PTE_V     0x001 // Valid
 #define PTE_R     0x002 // Read
 #define PTE_W     0x004 // Write
