@@ -27,7 +27,8 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 			uintptr_t hpt_pmd_start, uintptr_t hpt_pte_start);
 
 /**
- * Enable monitoring HPT Area
+ * Enable monitoring HPT Area.
+ * Also ensure that page tables in HPT Area only have entries inside HPT Area
  *
  * @return 0 on success, negative error code on failure
  */
@@ -72,8 +73,8 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs);
  * Set pte entry, check if the action is valid
  * 
  * @param sub_fid sub-function id, SBI_EXT_SM_SET_PTE_*
- * @param addr physical address of the entry
- * @param pte the new value of the entry / source physical address
+ * @param addr physical address of the entry / destination physical address
+ * @param pte_or_src the new value of the entry / source physical address
  * @param size the size of the entries
  * @return 0 on success, negative error code on failure
  */
