@@ -5,6 +5,7 @@
 #include <sbi/riscv_encoding.h>
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_pmp.h>
+#include <sbi/sbi_tvm.h>
 #include <sbi/sbi_math.h>
 
 // TODO: more levels
@@ -89,7 +90,7 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 	return 0;
 }
 
-int monitor_init()
+int monitor_init(uintptr_t *mstatus)
 {
 	// ensure PGD entries only map to HPT PMD Area
 	for (uintptr_t *pte = (uintptr_t *)hpt_start;
@@ -124,7 +125,8 @@ int monitor_init()
 		}
 	}
 
-	// TODO: enable TVM
+	set_tvm_and_sync();
+	*mstatus = csr_read(CSR_MSTATUS);
 
 	check_enabled = true;
 	sbi_printf("\nSM Monitor Init\n\n");
@@ -139,13 +141,7 @@ int sm_set_shared(uintptr_t paddr_start, uint64_t size)
 	return 0;
 }
 
-/**
- * @brief Get the number of pages covered by a entry
- *
- * @param pte_addr The address of the entry
- * @return negative error code on failure
- */
-inline int get_page_num(uintptr_t pte_addr)
+int get_page_num(uintptr_t pte_addr)
 {
 	if (unlikely(((hpt_start) <= pte_addr) && ((hpt_pmd_start) > pte_addr)))
 		return 512 * 512;
@@ -165,7 +161,7 @@ inline int get_page_num(uintptr_t pte_addr)
  * @param page_num The number of pages to be set
  * @return 0 on success, negative error code on failure
  */
-int set_single_pte(unsigned long *addr, unsigned long pte, size_t page_num)
+inline int set_single_pte(unsigned long *addr, unsigned long pte, size_t page_num)
 {
 	*((unsigned long *)addr) = pte;
 	return 0;
@@ -179,7 +175,7 @@ int set_single_pte(unsigned long *addr, unsigned long pte, size_t page_num)
  * @param page_num The number of pages to be set
  * @return 0 on success, negative error code on failure
  */
-int check_set_single_pte(unsigned long *addr, unsigned long pte,
+inline int check_set_single_pte(unsigned long *addr, unsigned long pte,
 			 size_t page_num)
 {
 	if (unlikely(check_enabled == false)) {

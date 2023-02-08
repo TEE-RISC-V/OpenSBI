@@ -6,7 +6,7 @@
 #include <sm/sm.h>
 
 static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
-				const struct sbi_trap_regs *regs,
+				struct sbi_trap_regs *regs,
 				unsigned long *out_val,
 				struct sbi_trap_info *out_trap)
 {
@@ -25,7 +25,7 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 				 regs->a3);
 		break;
 	case SBI_EXT_SM_MONITOR_INIT:
-		ret = monitor_init();
+		ret = monitor_init(&regs->mstatus);
 		break;
 	default:
 		sbi_printf(

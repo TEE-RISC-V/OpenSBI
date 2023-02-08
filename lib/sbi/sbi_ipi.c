@@ -178,7 +178,7 @@ int sbi_ipi_send_halt(ulong hmask, ulong hbase)
 	return sbi_ipi_send_many(hmask, hbase, ipi_halt_event, NULL);
 }
 
-void sbi_ipi_process(void)
+void sbi_ipi_process(ulong *mstatus)
 {
 	unsigned long ipi_type;
 	unsigned int ipi_event;
@@ -206,6 +206,7 @@ skip:
 		ipi_type = ipi_type >> 1;
 		ipi_event++;
 	};
+	*mstatus = csr_read(CSR_MSTATUS);
 }
 
 int sbi_ipi_raw_send(u32 target_hart)
@@ -278,7 +279,8 @@ void sbi_ipi_exit(struct sbi_scratch *scratch)
 	csr_clear(CSR_MIE, MIP_MSIP);
 
 	/* Process pending IPIs */
-	sbi_ipi_process();
+	ulong place_holder;
+	sbi_ipi_process(&place_holder);
 
 	/* Platform exit */
 	sbi_platform_ipi_exit(sbi_platform_ptr(scratch));
