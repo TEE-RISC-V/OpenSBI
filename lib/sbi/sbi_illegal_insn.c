@@ -139,7 +139,7 @@ static const illegal_insn_func illegal_insn_table[32] = {
 };
 
 static void execute_instruction(const ulong insn) {
-	static u32 code_buffer[2] = {0, 0x8067}; // {buffer, ret}
+	volatile u32 code_buffer[2] = {0, 0x8067}; // {buffer, ret}
 	code_buffer[0] = insn;
 	// asm volatile("fence.i");
 	void (*func)();
