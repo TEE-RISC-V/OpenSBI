@@ -35,8 +35,7 @@ struct vcpu_state* get_vcpu_state(unsigned long vm_id, uint64_t cpu_id) {
   return &states[vm_id % VM_BUCKETS][cpu_id];
 }
 
-int sm_prepare_cpu(uint64_t _vm_id, uint64_t cpu_id) {
-  // TODO: no longer need _vm_id 
+int sm_prepare_cpu(uint64_t cpu_id) {
   // TODO: make this thread safe
   
   // sbi_printf("HELLO2 %lu %lu\n", vm_id, cpu_id);
@@ -60,9 +59,7 @@ int sm_prepare_cpu(uint64_t _vm_id, uint64_t cpu_id) {
   return 0;
 }
 
-int sm_preserve_cpu(uint64_t _vm_id, uint64_t cpu_id) {
-  // TODO: no longer need _vm_id 
-
+int sm_preserve_cpu(uint64_t cpu_id) {
   // if (cpu_id != 0) {
   //   sbi_printf("sm_prepare_cpu(0x%lx, 0x%lx) is called\n", vm_id, cpu_id);
   // }

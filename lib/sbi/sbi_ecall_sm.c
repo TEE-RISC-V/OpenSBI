@@ -17,10 +17,10 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 		ret = sm_set_shared(regs->a0, regs->a1);
 		break;
 	case SBI_EXT_SM_PREPARE_CPU:
-		ret = sm_prepare_cpu(regs->a0, regs->a1);
+		ret = sm_prepare_cpu(regs->a0);
 		break;
 	case SBI_EXT_SM_PRESERVE_CPU:
-		ret = sm_preserve_cpu(regs->a0, regs->a1);
+		ret = sm_preserve_cpu(regs->a0);
 		break;
 	default:
 		ret = SBI_ENOTSUPP;
