@@ -18,7 +18,7 @@
 #include <sbi/riscv_asm.h>
 
 static int sbi_ecall_hsm_handler(unsigned long extid, unsigned long funcid,
-				 const struct sbi_trap_regs *regs,
+				 struct sbi_trap_regs *regs,
 				 unsigned long *out_val,
 				 struct sbi_trap_info *out_trap)
 {

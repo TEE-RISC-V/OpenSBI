@@ -92,7 +92,7 @@ static int ae350_final_init(bool cold_boot)
 
 /* Vendor-Specific SBI handler */
 static int ae350_vendor_ext_provider(long extid, long funcid,
-	const struct sbi_trap_regs *regs, unsigned long *out_value,
+	struct sbi_trap_regs *regs, unsigned long *out_value,
 	struct sbi_trap_info *out_trap)
 {
 	int ret = 0;

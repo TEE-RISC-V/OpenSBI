@@ -65,3 +65,4 @@ libsbi-objs-y += sbi_expected_trap.o
 libsbi-objs-y += sm/sm.o
 libsbi-objs-y += sm/bitmap.o
 libsbi-objs-y += sbi_pmp.o
+libsbi-objs-y += sbi_tvm.o

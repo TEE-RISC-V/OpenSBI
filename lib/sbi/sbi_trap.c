@@ -216,7 +216,7 @@ static int sbi_trap_nonaia_irq(struct sbi_trap_regs *regs, ulong mcause)
 		sbi_timer_process();
 		break;
 	case IRQ_M_SOFT:
-		sbi_ipi_process();
+		sbi_ipi_process(&regs->mstatus);
 		break;
 	case IRQ_M_EXT:
 		return sbi_irqchip_process(regs);
@@ -239,7 +239,7 @@ static int sbi_trap_aia_irq(struct sbi_trap_regs *regs, ulong mcause)
 			sbi_timer_process();
 			break;
 		case IRQ_M_SOFT:
-			sbi_ipi_process();
+			sbi_ipi_process(&regs->mstatus);
 			break;
 		case IRQ_M_EXT:
 			rc = sbi_irqchip_process(regs);

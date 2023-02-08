@@ -21,7 +21,7 @@
 
 #ifdef CONFIG_SBI_ECALL_TIME
 static int sbi_ecall_time_handler(unsigned long extid, unsigned long funcid,
-				  const struct sbi_trap_regs *regs,
+				  struct sbi_trap_regs *regs,
 				  unsigned long *out_val,
 				  struct sbi_trap_info *out_trap)
 {
@@ -48,7 +48,7 @@ struct sbi_ecall_extension ecall_time = {
 
 #ifdef CONFIG_SBI_ECALL_RFENCE
 static int sbi_ecall_rfence_handler(unsigned long extid, unsigned long funcid,
-				    const struct sbi_trap_regs *regs,
+				    struct sbi_trap_regs *regs,
 				    unsigned long *out_val,
 				    struct sbi_trap_info *out_trap)
 {
@@ -120,7 +120,7 @@ struct sbi_ecall_extension ecall_rfence = {
 
 #ifdef CONFIG_SBI_ECALL_IPI
 static int sbi_ecall_ipi_handler(unsigned long extid, unsigned long funcid,
-				 const struct sbi_trap_regs *regs,
+				 struct sbi_trap_regs *regs,
 				 unsigned long *out_val,
 				 struct sbi_trap_info *out_trap)
 {
@@ -143,7 +143,7 @@ struct sbi_ecall_extension ecall_ipi = {
 
 #ifdef CONFIG_SBI_ECALL_SRST
 static int sbi_ecall_srst_handler(unsigned long extid, unsigned long funcid,
-				  const struct sbi_trap_regs *regs,
+				  struct sbi_trap_regs *regs,
 				  unsigned long *out_val,
 				  struct sbi_trap_info *out_trap)
 {

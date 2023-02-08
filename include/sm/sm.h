@@ -30,9 +30,10 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
  * Enable monitoring HPT Area.
  * Also ensure that page tables in HPT Area only have entries inside HPT Area
  *
+ * @param mstatus The saved mstatus on stack
  * @return 0 on success, negative error code on failure
  */
-int monitor_init();
+int monitor_init(uintptr_t *mstatus);
 
 /**
  * Set a contiguous memory region as shared region
@@ -70,8 +71,16 @@ int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs);
 int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs);
 
 /*
+ * @brief Get the number of pages covered by a entry
+ *
+ * @param pte_addr The address of the entry
+ * @return negative error code on failure
+ */
+int get_page_num(uintptr_t pte_addr);
+
+/**
  * Set pte entry, check if the action is valid
- * 
+ *
  * @param sub_fid sub-function id, SBI_EXT_SM_SET_PTE_*
  * @param addr physical address of the entry / destination physical address
  * @param pte_or_src the new value of the entry / source physical address
