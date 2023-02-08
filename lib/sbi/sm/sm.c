@@ -34,7 +34,11 @@ void update_min_usable_pmp_id(unsigned int pmp_idx)
 
 void sm_init()
 {
-	// TODO: set up initial PMP registers
+	if (set_pmp_and_sync(
+		    next_pmp_idx++, 0, 0x80000000,
+		    log2roundup(0x200000))) { // TODO: check the size of SM
+		sbi_panic("Unable to use PMP to protect SM\n");
+	}
 	sbi_printf("\nSM Init\n\n");
 }
 
@@ -135,9 +139,13 @@ int monitor_init(uintptr_t *mstatus)
 
 int sm_set_shared(uintptr_t paddr_start, uint64_t size)
 {
-	// TODO: replace this with real implementation
-	sbi_printf("sm_set_shared(0x%lx, 0x%lx) is called\n", paddr_start,
-		   size);
+	int ret = 0;
+	lock_bitmap;
+	ret = set_shared_range(paddr_start >> PAGE_SHIFT, size >> PAGE_SHIFT);
+	unlock_bitmap;
+	if (unlikely(ret))
+		sbi_printf("sm_set_shared(0x%lx, 0x%lx) errno: %d\n",
+			   paddr_start, size, ret);
 	return 0;
 }
 
@@ -161,7 +169,8 @@ int get_page_num(uintptr_t pte_addr)
  * @param page_num The number of pages to be set
  * @return 0 on success, negative error code on failure
  */
-inline int set_single_pte(unsigned long *addr, unsigned long pte, size_t page_num)
+inline int set_single_pte(unsigned long *addr, unsigned long pte,
+			  size_t page_num)
 {
 	*((unsigned long *)addr) = pte;
 	return 0;
@@ -176,7 +185,7 @@ inline int set_single_pte(unsigned long *addr, unsigned long pte, size_t page_nu
  * @return 0 on success, negative error code on failure
  */
 inline int check_set_single_pte(unsigned long *addr, unsigned long pte,
-			 size_t page_num)
+				size_t page_num)
 {
 	if (unlikely(check_enabled == false)) {
 		set_single_pte(addr, pte, page_num);
@@ -226,8 +235,8 @@ inline int check_set_single_pte(unsigned long *addr, unsigned long pte,
 int sm_set_pte(unsigned long sub_fid, unsigned long *addr,
 	       unsigned long pte_or_src, size_t size)
 {
-	// TODO: lock?
 	int ret = 0;
+	lock_bitmap;
 	switch (sub_fid) {
 	case SBI_EXT_SM_SET_PTE_CLEAR:
 		for (size_t i = 0; i < size / sizeof(uintptr_t); ++i, ++addr) {
@@ -258,5 +267,6 @@ int sm_set_pte(unsigned long sub_fid, unsigned long *addr,
 		ret = -1;
 		break;
 	}
+	unlock_bitmap;
 	return ret;
 }
