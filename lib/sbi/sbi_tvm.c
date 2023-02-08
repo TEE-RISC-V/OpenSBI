@@ -20,19 +20,8 @@ static unsigned long tvm_sync_offset;
 inline void tvm_set()
 {
 	uintptr_t mstatus = csr_read(CSR_MSTATUS);
-
-	u32 curr_hartid = current_hartid();
-	sbi_printf("tvm_set[%u]: old mstatus 0x%lx\n", curr_hartid, mstatus);
-
 	mstatus = INSERT_FIELD(mstatus, MSTATUS_TVM, 1);
-	sbi_printf("tvm_set[%u]: supposed new mstatus 0x%lx\n", curr_hartid,
-		   mstatus);
 	csr_write(CSR_MSTATUS, mstatus);
-
-        uintptr_t medeleg = csr_read(CSR_MEDELEG);
-	sbi_printf("tvm_set[%u]: medeleg 0x%lx\n", curr_hartid, medeleg);
-	mstatus = csr_read(CSR_MSTATUS);
-	sbi_printf("tvm_set[%u]: new mstatus 0x%lx\n", curr_hartid, mstatus);
 }
 
 static void sbi_process_tvm(struct sbi_scratch *scratch)
