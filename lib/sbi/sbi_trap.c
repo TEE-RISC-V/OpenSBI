@@ -209,38 +209,6 @@ static inline void prepare_for_vm(struct sbi_trap_regs *regs, struct sbi_scratch
 	ulong deleg = csr_read(CSR_MIDELEG);
 	csr_write(CSR_MIDELEG, deleg & ~(MIP_SSIP | MIP_STIP | MIP_SEIP));
 
-	// ulong prev_mode = (regs->mstatus & ~MSTATUS_SPP) >> MSTATUS_SPP_SHIFT;
-
-	// regs->mstatus &= ~MSTATUS_MPP;
-
-	// if (prev_mode == 0) sbi_printf("wow wow\n");
-	// else regs->mstatus |= 1 << MSTATUS_MPP_SHIFT;
-
-	// regs->mstatus |= MSTATUS_MPV;
-
-	// regs->mstatus |= MSTATUS_MPIE;
-
-	// regs->mepc = csr_read(CSR_SEPC);
-
-
-	// ulong hstatus = csr_read(CSR_HSTATUS);
-	// hstatus &= ~(HSTATUS_SPV);
-	// csr_write(CSR_HSTATUS, hstatus);
-
-	// regs->mstatus &= ~(SSTATUS_SPP);
-
-	// regs->mstatus &= ~(SSTATUS_SIE);
-
-	// ulong spie = (regs->mstatus & SSTATUS_SPIE) >> SSTATUS_SPIE_SHIFT;
-
-	// regs->mstatus &= ~SSTATUS_SIE;
-
-	// if (spie) regs->mstatus |= SSTATUS_SIE;
-
-	// regs->mstatus |= SSTATUS_SPIE;
-
-	// sbi_printf("%lu\n", regs->mepc);
-
 	return;
 }
 
@@ -360,20 +328,20 @@ int sbi_interrupt_redirect(struct sbi_trap_regs *regs,
 			scratch = store_state_in_scratch(regs, trap);
 
 			// TODO: implement all the cases
-			// switch (trap->cause) {
-			// case CAUSE_FETCH_ACCESS:
-			// case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
-			// case CAUSE_FETCH_GUEST_PAGE_FAULT:
-			// case CAUSE_LOAD_GUEST_PAGE_FAULT:
-			// case CAUSE_STORE_GUEST_PAGE_FAULT:
-			// 	break;
-			// case CAUSE_VIRTUAL_INST_FAULT:
-			// 	hide_registers(regs, trap, scratch, true);
-			// 	break;
-			// default:
-			// 	hide_registers(regs, trap, scratch, false);
-			// 	break;
-			// }
+			switch (trap->cause) {
+			case CAUSE_FETCH_ACCESS:
+			case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
+			case CAUSE_FETCH_GUEST_PAGE_FAULT:
+			case CAUSE_LOAD_GUEST_PAGE_FAULT:
+			case CAUSE_STORE_GUEST_PAGE_FAULT:
+				break;
+			case CAUSE_VIRTUAL_INST_FAULT:
+				hide_registers(regs, trap, scratch, true);
+				break;
+			default:
+				hide_registers(regs, trap, scratch, false);
+				break;
+			}
 
 		}
 
@@ -709,6 +677,17 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 						goto trap_error;
 					}
 				}
+				break;
+				
+				case IRQ_S_SOFT_FLIPPED:
+				case IRQ_S_TIMER_FLIPPED:
+				case IRQ_S_EXT_FLIPPED:
+				case IRQ_S_GEXT_FLIPPED: {
+					// sbi_printf("Hello there!\n");
+					restore_registers(regs, state);
+					prepare_for_vm(regs, scratch);
+				}
+
 				break;
 			default:
 				sbi_printf("I AM HERE\n");
