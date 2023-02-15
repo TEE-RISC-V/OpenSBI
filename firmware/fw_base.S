@@ -756,9 +756,18 @@ _trap_exit:
 
 	TRAP_RESTORE_MEPC_MSTATUS 0
 
+	REG_L t0, SBI_TRAP_REGS_OFFSET(extraInfo)(a0)
+
+	bne t0, zero, special_sret
+
 	TRAP_RESTORE_A0_T0
 
 	mret
+
+special_sret:
+	TRAP_RESTORE_A0_T0
+
+	sret
 
 #if __riscv_xlen == 32
 	.section .entry, "ax", %progbits

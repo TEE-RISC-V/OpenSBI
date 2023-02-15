@@ -84,8 +84,10 @@
 #define SBI_TRAP_REGS_mstatus			33
 /** Index of mstatusH member in sbi_trap_regs */
 #define SBI_TRAP_REGS_mstatusH			34
+/** Index of extraInfo member in sbi_trap_regs */
+#define SBI_TRAP_REGS_extraInfo		35
 /** Last member index in sbi_trap_regs */
-#define SBI_TRAP_REGS_last			35
+#define SBI_TRAP_REGS_last			36
 
 /** Index of epc member in sbi_trap_info */
 #define SBI_TRAP_INFO_epc			0
@@ -190,6 +192,8 @@ struct sbi_trap_regs {
 	unsigned long mstatus;
 	/** mstatusH register state (only for 32-bit) */
 	unsigned long mstatusH;
+
+	unsigned long extraInfo;
 };
 
 /** Representation of trap details */

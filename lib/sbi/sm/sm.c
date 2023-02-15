@@ -52,8 +52,8 @@ int sm_prepare_cpu(uint64_t cpu_id) {
   }
 
   scratch->storing_vcpu = 1;
-  scratch->vm_id = 1;
-  scratch->cpu_id = 1;
+  scratch->vm_id = vm_id;
+  scratch->cpu_id = cpu_id;
 
   sbi_memcpy(&scratch->state, get_vcpu_state(vm_id, cpu_id), sizeof(struct vcpu_state));
   return 0;
@@ -71,7 +71,7 @@ int sm_preserve_cpu(uint64_t cpu_id) {
   struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
   if (scratch->storing_vcpu != 1) {
-    sbi_printf("sm error2\n");
+    sbi_printf("sm error2 %lu %d\n", ~(1UL << (__riscv_xlen - 1)) & csr_read(CSR_SCAUSE), scratch->storing_vcpu);
   }
 
   scratch->storing_vcpu = 0;

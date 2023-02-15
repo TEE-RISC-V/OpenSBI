@@ -198,6 +198,8 @@ static int delegate_traps(struct sbi_scratch *scratch)
 		/* No delegation possible as mideleg does not exist */
 		return 0;
 
+	csr_write(CSR_MIE, csr_read(CSR_MIE) | MIP_SSIP | MIP_STIP | MIP_SEIP);
+
 	/* Send M-mode interrupts and most exceptions to S-mode */
 	interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
 	interrupts |= sbi_pmu_irq_bit();
