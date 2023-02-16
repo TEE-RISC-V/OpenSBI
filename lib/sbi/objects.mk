@@ -27,7 +27,6 @@ carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_LEGACY) += ecall_legacy
 carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_VENDOR) += ecall_vendor
 carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_SM) += ecall_sm
 carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_SM_CREATE) += ecall_sm_create
-carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_SM_RESUME) += ecall_sm_resume
 
 libsbi-objs-y += sbi_ecall_base.o
 libsbi-objs-$(CONFIG_SBI_ECALL_HSM) += sbi_ecall_hsm.o
