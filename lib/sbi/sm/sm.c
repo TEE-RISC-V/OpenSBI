@@ -186,31 +186,23 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
     case -1LLU: {
       restore_registers(regs, state);
       prepare_for_vm(regs, scratch);
-
-      sbi_printf("hello there!\n");
     }
 
     break;
   default:
     sbi_printf("I AM HERE %lu\n", state->trap.cause);
 
-    // sbi_hart_hang();
+    sbi_hart_hang();
     break;
   }
 
 
 trap_error:
 
-
-
   return ret;
 }
 
-int sm_preserve_cpu(uint64_t cpu_id) {
-  // if (cpu_id != 0) {
-  //   sbi_printf("sm_prepare_cpu(0x%lx, 0x%lx) is called\n", vm_id, cpu_id);
-  // }
-
+int sm_preserve_cpu(uint64_t cpu_id, uint64_t vm_id) {
   if (cpu_id >= STORED_STATES) {
     return 1;
   }
@@ -222,8 +214,6 @@ int sm_preserve_cpu(uint64_t cpu_id) {
   }
 
   scratch->storing_vcpu = 0;
-
-  unsigned long vm_id = get_vm_id();
 
   sbi_memcpy(get_vcpu_state(vm_id, cpu_id), &scratch->state, sizeof(struct vcpu_state));
 

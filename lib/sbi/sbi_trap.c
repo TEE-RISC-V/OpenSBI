@@ -177,43 +177,6 @@ inline void hide_registers(struct sbi_trap_regs *regs, struct sbi_trap_info *tra
 	if (is_csr && is_virtual_insn_fault) *REG_PTR(insn, SH_RS1, regs) = saved_value;
 }
 
-static inline void restore_registers(struct sbi_trap_regs *regs, struct vcpu_state *state) {
-	ulong orig_insn = state->trap.tval;
-	ulong reg_value = 0;
-
-	if (state->was_csr_insn) {
-		reg_value = *REG_PTR(orig_insn, SH_RD, regs);
-	}
-
-	ulong epc = regs->mepc;
-	ulong status = regs->mstatus;
-	ulong statusH = regs->mstatusH;
-
-	sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
-
-	regs->mepc = epc;
-	regs->mstatus = status;
-	regs->mstatusH = statusH;
-
-	if (state->was_csr_insn) {
-		SET_RD(orig_insn, regs, reg_value);
-	}
-
-	return;
-}
-
-static inline void prepare_for_vm(struct sbi_trap_regs *regs, struct sbi_scratch *scratch) {
-	regs->mstatus &= ~MSTATUS_TSR;
-	scratch->storing_vcpu = 0;
-
-	regs->extraInfo = 1;
-
-	ulong deleg = csr_read(CSR_MIDELEG);
-	csr_write(CSR_MIDELEG, deleg & ~(MIP_SSIP | MIP_STIP | MIP_SEIP));
-
-	return;
-}
-
 /**
  * Redirect trap to lower privilege mode (S-mode or U-mode)
  *
@@ -364,7 +327,7 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		regs->mstatus &= ~MSTATUS_SIE;
 
 		if (prev_virt) {
-			sm_preserve_cpu(scratch->cpu_id);
+			sm_preserve_cpu(scratch->cpu_id, scratch->vm_id);
 		}
 	}
 
@@ -472,89 +435,6 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		}
 		return regs;
 	}
-
-// #if __riscv_xlen == 32
-// 	bool prev_virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
-// #else
-// 	bool prev_virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
-// #endif
-
-	// if (mcause == CAUSE_ILLEGAL_INSTRUCTION && mtval == INSN_SRET && !prev_virt) {
-	// 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
-
-	// 	if (scratch->storing_vcpu) {
-	// 		ulong sepc = csr_read(CSR_SEPC);
-
-	// 		struct vcpu_state *state = &scratch->state;
-	// 		switch (state->trap.cause) {
-	// 			case CAUSE_FETCH_ACCESS:
-	// 			case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
-	// 			case CAUSE_FETCH_GUEST_PAGE_FAULT:
-	// 			case CAUSE_LOAD_GUEST_PAGE_FAULT:
-	// 			case CAUSE_STORE_GUEST_PAGE_FAULT: {
-	// 				prepare_for_vm(regs, scratch);
-	// 			}
-
-	// 			break;
-
-	// 			case CAUSE_VIRTUAL_INST_FAULT: {
-	// 				// ulong sepc = csr_read(CSR_SEPC);
-	// 				// Supervisor trying to return to next instruction
-
-	// 				if (sepc == state->vcpu_state.mepc + 4) {
-	// 					restore_registers(regs, state);
-	// 					prepare_for_vm(regs, scratch);
-	// 				} else if (sepc == csr_read(CSR_VSTVEC)) {
-	// 					restore_registers(regs, state);
-	// 					prepare_for_vm(regs, scratch);
-	// 				} else {
-	// 					sbi_printf("BRUH 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
-	// 					rc = SBI_EUNKNOWN;
-
-	// 					goto trap_error;
-	// 				}
-	// 			}
-	// 			break;
-				
-	// 			case IRQ_S_SOFT_FLIPPED:
-	// 			case IRQ_S_TIMER_FLIPPED:
-	// 			case IRQ_S_EXT_FLIPPED:
-	// 			case IRQ_S_GEXT_FLIPPED: {
-	// 				// TODO 1: 
-	// 				if (sepc == state->vcpu_state.mepc) {
-	// 					restore_registers(regs, state);
-	// 					prepare_for_vm(regs, scratch);
-	// 				} else {
-	// 					sbi_printf("BRUH2 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
-	// 					rc = SBI_EUNKNOWN;
-
-	// 					goto trap_error;
-	// 				}
-
-	// 			}
-
-	// 			break;
-
-	// 			// Special case when running for the first time
-	// 			case -1LLU: {
-	// 				restore_registers(regs, state);
-	// 				prepare_for_vm(regs, scratch);
-
-	// 				sbi_printf("hello there!\n");
-	// 			}
-
-	// 			break;
-	// 		default:
-	// 			sbi_printf("I AM HERE %lu\n", state->trap.cause);
-
-	// 			sbi_hart_hang();
-	// 			break;
-	// 		}
-
-	// 		return regs;
-	// 	}
-	// }
-
 
 	switch (mcause) {
 	case CAUSE_ILLEGAL_INSTRUCTION:

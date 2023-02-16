@@ -27,9 +27,10 @@ int sm_prepare_cpu(uint64_t cpu_id);
  * Preserve a CPU (TODO: Details)
  *
  * @param cpu_id id of the vCPU
+ * @param vm_id  id of the VM
  * @return 0 on success, error code on failure
  */
-int sm_preserve_cpu(uint64_t cpu_id);
+int sm_preserve_cpu(uint64_t cpu_id, uint64_t vm_id);
 
 
 /**
