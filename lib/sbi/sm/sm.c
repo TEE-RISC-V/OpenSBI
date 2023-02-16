@@ -12,6 +12,10 @@
 
 static struct vcpu_state states[VM_BUCKETS][STORED_STATES];
 
+// TODO: add locks to prevent multiple states
+// TODO: also keep track of which vCPUs are being run so that
+// OS cannot abuse things
+
 
 int sm_init()
 {
