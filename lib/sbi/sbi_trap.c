@@ -514,14 +514,29 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 				case IRQ_S_TIMER_FLIPPED:
 				case IRQ_S_EXT_FLIPPED:
 				case IRQ_S_GEXT_FLIPPED: {
-					// sbi_printf("Hello there!\n");
+					// TODO 1: 
+					// if (sepc == state->vcpu_state.mepc) {
+
+					// }
 					restore_registers(regs, state);
 					prepare_for_vm(regs, scratch);
 				}
 
 				break;
+
+				// Special case when running for the first time
+				case -1LLU: {
+					restore_registers(regs, state);
+					prepare_for_vm(regs, scratch);
+
+					sbi_printf("hello there!\n");
+				}
+
+				break;
 			default:
-				sbi_printf("I AM HERE\n");
+				sbi_printf("I AM HERE %lu\n", state->trap.cause);
+
+				sbi_hart_hang();
 				break;
 			}
 

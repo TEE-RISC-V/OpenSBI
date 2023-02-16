@@ -2,6 +2,9 @@
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_string.h>
 #include <sbi/sbi_scratch.h>
+#include <sbi/sbi_trap.h>
+// #include <sbi/sbi_hart.h>
+#include <sbi/sbi_unpriv.h>
 
 #define STORED_STATES 16
 #define VM_BUCKETS 16
@@ -56,6 +59,36 @@ int sm_prepare_cpu(uint64_t cpu_id) {
   scratch->cpu_id = cpu_id;
 
   sbi_memcpy(&scratch->state, get_vcpu_state(vm_id, cpu_id), sizeof(struct vcpu_state));
+  return 0;
+}
+
+int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs * regs) {
+  if (cpu_id >= STORED_STATES) {
+    return 1;
+  }
+
+  unsigned long vm_id = get_vm_id();
+
+  struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
+
+  sbi_memcpy(&state->vcpu_state, regs, sizeof(struct sbi_trap_regs));
+  state->vcpu_state.a1 = csr_read(CSR_STVAL);
+  state->vcpu_state.a7 = csr_read(CSR_SCAUSE);
+  state->trap.cause = -1LLU;
+
+  return 0;
+}
+
+
+int sm_resume_cpu(uint64_t cpu_id, const struct sbi_trap_regs * regs) {
+  if (cpu_id >= STORED_STATES) {
+    return 1;
+  }
+
+  unsigned long vm_id = get_vm_id();
+
+  get_vcpu_state(vm_id, cpu_id)->trap.cause = -1LLU;
+
   return 0;
 }
 

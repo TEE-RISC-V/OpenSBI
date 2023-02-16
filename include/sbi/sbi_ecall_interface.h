@@ -30,6 +30,9 @@
 #define SBI_EXT_SRST				0x53525354
 #define SBI_EXT_PMU				0x504D55
 #define SBI_EXT_SM	0x8000000
+#define SBI_EXT_SM_CREATE	0x8000001
+#define SBI_EXT_SM_RESUME	0x8000002
+
 
 /* SBI function IDs for SM extension */
 #define SBI_EXT_SM_SET_SHARED 0x0

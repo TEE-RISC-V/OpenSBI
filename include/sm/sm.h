@@ -2,6 +2,7 @@
 #define __SM_H__
 
 #include <sbi/sbi_types.h>
+#include <sbi/sbi_trap.h>
 
 int sm_init();
 
@@ -29,5 +30,22 @@ int sm_prepare_cpu(uint64_t cpu_id);
  * @return 0 on success, error code on failure
  */
 int sm_preserve_cpu(uint64_t cpu_id);
+
+
+/**
+ * Create a CPU (TODO: Details)
+ *
+ * @param cpu_id id of the vCPU
+ * @return 0 on success, error code on failure
+ */
+int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs);
+
+/**
+ * Resume a CPU (TODO: Details)
+ *
+ * @param cpu_id id of the vCPU
+ * @return 0 on success, error code on failure
+ */
+int sm_resume_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs);
 
 #endif

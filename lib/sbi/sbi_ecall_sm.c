@@ -28,8 +28,46 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 	return ret;
 }
 
+static int sbi_ecall_sm_create_handler(unsigned long extid, unsigned long funcid,
+				const struct sbi_trap_regs *regs,
+				unsigned long *out_val,
+				struct sbi_trap_info *out_trap)
+{
+	int ret = 0;
+
+	ret = sm_create_cpu(regs->a1, regs);
+
+	return ret;
+}
+
+static int sbi_ecall_sm_resume_handler(unsigned long extid, unsigned long funcid,
+				const struct sbi_trap_regs *regs,
+				unsigned long *out_val,
+				struct sbi_trap_info *out_trap)
+{
+	int ret = 0;
+
+	ret = sm_resume_cpu(regs->a1, regs);
+
+	return ret;
+}
+
+
 struct sbi_ecall_extension ecall_sm = {
 	.extid_start = SBI_EXT_SM,
 	.extid_end   = SBI_EXT_SM,
 	.handle	     = sbi_ecall_sm_handler,
 };
+
+struct sbi_ecall_extension ecall_sm_create = {
+	.extid_start = SBI_EXT_SM_CREATE,
+	.extid_end   = SBI_EXT_SM_CREATE,
+	.handle	     = sbi_ecall_sm_create_handler,
+};
+
+struct sbi_ecall_extension ecall_sm_resume = {
+	.extid_start = SBI_EXT_SM_RESUME,
+	.extid_end   = SBI_EXT_SM_RESUME,
+	.handle	     = sbi_ecall_sm_resume_handler,
+};
+
