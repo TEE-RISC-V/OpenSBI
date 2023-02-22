@@ -47,12 +47,15 @@
 #ifndef __ASSEMBLER__
 
 #include <sbi/sbi_types.h>
+#include <sbi/riscv_locks.h>
 
 struct vcpu_state {
     struct sbi_trap_regs vcpu_state;
 	struct sbi_trap_info trap;
     bool was_csr_insn;
+	bool running;
 	ulong prev_exception;
+	spinlock_t lock;
 };
 
 /** Representation of per-HART scratch space */
