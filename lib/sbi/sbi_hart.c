@@ -204,8 +204,6 @@ static int delegate_traps(struct sbi_scratch *scratch)
 	interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
 	interrupts |= sbi_pmu_irq_bit();
 
-	exceptions = 0;
-
 	exceptions = (1U << CAUSE_MISALIGNED_FETCH) | (1U << CAUSE_BREAKPOINT) |
 		     (1U << CAUSE_USER_ECALL);
 	if (sbi_platform_has_mfaults_delegation(plat))
