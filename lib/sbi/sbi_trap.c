@@ -268,7 +268,6 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 
 			csr_write(CSR_MIDELEG, csr_read(CSR_MIDELEG) | MIP_SSIP | MIP_STIP | MIP_SEIP);
 
-			// TODO: implement all the cases
 			switch (trap->cause) {
 			case CAUSE_FETCH_ACCESS:
 			case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
