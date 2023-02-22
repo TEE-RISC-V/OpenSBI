@@ -267,6 +267,7 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 			struct vcpu_state *state = sm_preserve_cpu(regs, trap);
 
 			csr_write(CSR_MIDELEG, csr_read(CSR_MIDELEG) | MIP_SSIP | MIP_STIP | MIP_SEIP);
+			csr_write(CSR_MEDELEG, state->prev_exception);
 
 			switch (trap->cause) {
 			case CAUSE_FETCH_ACCESS:

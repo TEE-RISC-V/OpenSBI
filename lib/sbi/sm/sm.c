@@ -43,13 +43,18 @@ struct vcpu_state* get_vcpu_state(unsigned long vm_id, uint64_t cpu_id) {
   return &states[vm_id % VM_BUCKETS][cpu_id];
 }
 
-static inline void prepare_for_vm(struct sbi_trap_regs *regs, struct sbi_scratch *scratch) {
+static inline void prepare_for_vm(struct sbi_trap_regs *regs, struct vcpu_state *state) {
 	regs->mstatus &= ~MSTATUS_TSR;
 
 	regs->extraInfo = 1;
 
 	ulong deleg = csr_read(CSR_MIDELEG);
 	csr_write(CSR_MIDELEG, deleg & ~(MIP_SSIP | MIP_STIP | MIP_SEIP));
+
+  ulong exception = csr_read(CSR_MEDELEG);
+  csr_write(CSR_MEDELEG, 0);
+
+  state->prev_exception = exception;
 
 	return;
 }
@@ -125,7 +130,6 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
   struct vcpu_state *state = sm_prepare_cpu(cpu_id);
 
   ulong sepc = csr_read(CSR_SEPC);
-  struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
   int ret = 0;
 
@@ -135,7 +139,7 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
     case CAUSE_FETCH_GUEST_PAGE_FAULT:
     case CAUSE_LOAD_GUEST_PAGE_FAULT:
     case CAUSE_STORE_GUEST_PAGE_FAULT: {
-      prepare_for_vm(regs, scratch);
+      prepare_for_vm(regs, state);
     }
 
     break;
@@ -145,10 +149,10 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
 
       if (sepc == state->vcpu_state.mepc + 4) {
         restore_registers(regs, state);
-        prepare_for_vm(regs, scratch);
+        prepare_for_vm(regs, state);
       } else if (sepc == csr_read(CSR_VSTVEC)) {
         restore_registers(regs, state);
-        prepare_for_vm(regs, scratch);
+        prepare_for_vm(regs, state);
       } else {
         sbi_printf("BRUH 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
         ret = SBI_EUNKNOWN;
@@ -164,7 +168,7 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
     case IRQ_S_GEXT_FLIPPED: {
       if (sepc == state->vcpu_state.mepc) {
         restore_registers(regs, state);
-        prepare_for_vm(regs, scratch);
+        prepare_for_vm(regs, state);
       } else {
         sbi_printf("BRUH2 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
         ret = SBI_EUNKNOWN;
@@ -179,7 +183,7 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
     // Special case when running for the first time
     case -1LLU: {
       restore_registers(regs, state);
-      prepare_for_vm(regs, scratch);
+      prepare_for_vm(regs, state);
     }
 
     break;

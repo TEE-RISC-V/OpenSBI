@@ -52,6 +52,7 @@ struct vcpu_state {
     struct sbi_trap_regs vcpu_state;
 	struct sbi_trap_info trap;
     bool was_csr_insn;
+	ulong prev_exception;
 };
 
 /** Representation of per-HART scratch space */
