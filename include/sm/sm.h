@@ -22,7 +22,7 @@ int sm_set_shared(uint64_t paddr_start, uint64_t size);
  * @param trap the trap information to save
  * @return 0 on success, error code on failure
  */
-struct vcpu_state* sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap);
+int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap);
 
 
 /**

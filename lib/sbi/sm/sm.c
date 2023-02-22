@@ -8,13 +8,61 @@
 #include <sbi/sbi_hart.h>
 #include <sbi/riscv_locks.h>
 
+struct insn_match {
+	unsigned long mask;
+	unsigned long match;
+};
+
+#define INSN_MATCH_CSRRW	0x1073
+#define INSN_MASK_CSRRW		0x707f
+#define INSN_MATCH_CSRRS	0x2073
+#define INSN_MASK_CSRRS		0x707f
+#define INSN_MATCH_CSRRC	0x3073
+#define INSN_MASK_CSRRC		0x707f
+#define INSN_MATCH_CSRRWI	0x5073
+#define INSN_MASK_CSRRWI	0x707f
+#define INSN_MATCH_CSRRSI	0x6073
+#define INSN_MASK_CSRRSI	0x707f
+#define INSN_MATCH_CSRRCI	0x7073
+#define INSN_MASK_CSRRCI	0x707f
+
+
+static const struct insn_match csr_functions[] = {
+	{
+		.mask  = INSN_MASK_CSRRW,
+		.match = INSN_MATCH_CSRRW,
+	},
+	{
+		.mask  = INSN_MASK_CSRRS,
+		.match = INSN_MATCH_CSRRS,
+	},
+	{
+		.mask  = INSN_MASK_CSRRC,
+		.match = INSN_MATCH_CSRRC,
+	},
+	{
+		.mask  = INSN_MASK_CSRRWI,
+		.match = INSN_MATCH_CSRRWI,
+	},
+	{
+		.mask  = INSN_MASK_CSRRSI,
+		.match = INSN_MATCH_CSRRSI,
+	},
+	{
+		.mask  = INSN_MASK_CSRRCI,
+		.match = INSN_MATCH_CSRRCI,
+	},
+	// {
+	// 	.mask  = INSN_MASK_WFI,
+	// 	.match = INSN_MATCH_WFI,
+	// },
+};
+
+
 #define STORED_STATES 16
 #define VM_BUCKETS 16
 
 static struct vcpu_state states[VM_BUCKETS][STORED_STATES];
-
-// TODO: add locks to prevent multiple states
-
 static spinlock_t global_lock = SPIN_LOCK_INITIALIZER;
 
 
@@ -221,56 +269,6 @@ trap_error:
   return ret;
 }
 
-struct insn_match {
-	unsigned long mask;
-	unsigned long match;
-};
-
-#define INSN_MATCH_CSRRW	0x1073
-#define INSN_MASK_CSRRW		0x707f
-#define INSN_MATCH_CSRRS	0x2073
-#define INSN_MASK_CSRRS		0x707f
-#define INSN_MATCH_CSRRC	0x3073
-#define INSN_MASK_CSRRC		0x707f
-#define INSN_MATCH_CSRRWI	0x5073
-#define INSN_MASK_CSRRWI	0x707f
-#define INSN_MATCH_CSRRSI	0x6073
-#define INSN_MASK_CSRRSI	0x707f
-#define INSN_MATCH_CSRRCI	0x7073
-#define INSN_MASK_CSRRCI	0x707f
-
-
-static const struct insn_match csr_functions[] = {
-	{
-		.mask  = INSN_MASK_CSRRW,
-		.match = INSN_MATCH_CSRRW,
-	},
-	{
-		.mask  = INSN_MASK_CSRRS,
-		.match = INSN_MATCH_CSRRS,
-	},
-	{
-		.mask  = INSN_MASK_CSRRC,
-		.match = INSN_MATCH_CSRRC,
-	},
-	{
-		.mask  = INSN_MASK_CSRRWI,
-		.match = INSN_MATCH_CSRRWI,
-	},
-	{
-		.mask  = INSN_MASK_CSRRSI,
-		.match = INSN_MATCH_CSRRSI,
-	},
-	{
-		.mask  = INSN_MASK_CSRRCI,
-		.match = INSN_MATCH_CSRRCI,
-	},
-	// {
-	// 	.mask  = INSN_MASK_WFI,
-	// 	.match = INSN_MATCH_WFI,
-	// },
-};
-
 bool is_csr_fn(struct sbi_trap_info *trap) {
 	ulong insn = trap->tval;
 
@@ -286,7 +284,6 @@ bool is_csr_fn(struct sbi_trap_info *trap) {
 
 	return is_csr;
 }
-
 
 inline void hide_registers(struct sbi_trap_regs *regs, struct sbi_trap_info *trap, struct vcpu_state *state, bool is_virtual_insn_fault) {
 	ulong insn = trap->tval;
@@ -310,14 +307,14 @@ inline void hide_registers(struct sbi_trap_regs *regs, struct sbi_trap_info *tra
 	if (is_csr && is_virtual_insn_fault) *REG_PTR(insn, SH_RS1, regs) = saved_value;
 }
 
-struct vcpu_state* sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap) {
+int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap) {
   struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
   int cpu_id = scratch->cpu_id;
   int vm_id = scratch->vm_id;
 
   if (cpu_id >= STORED_STATES) {
-    return 0;
+    return 1;
   }
 
   struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
@@ -326,7 +323,7 @@ struct vcpu_state* sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_i
 
   if (!state->running) {
     sbi_printf("CPU %d is not running yet!", cpu_id);
-    return 0;
+    return 2;
   }
 
   sbi_memcpy(&state->vcpu_state, regs, sizeof(struct sbi_trap_regs));
@@ -354,5 +351,5 @@ struct vcpu_state* sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_i
 
   spin_unlock(&state->lock);
 
-  return state;
+  return 0;
 }
