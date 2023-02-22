@@ -162,7 +162,6 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
     case IRQ_S_TIMER_FLIPPED:
     case IRQ_S_EXT_FLIPPED:
     case IRQ_S_GEXT_FLIPPED: {
-      // TODO 1: 
       if (sepc == state->vcpu_state.mepc) {
         restore_registers(regs, state);
         prepare_for_vm(regs, scratch);
