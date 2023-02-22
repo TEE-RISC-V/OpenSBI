@@ -80,10 +80,8 @@ struct sbi_scratch {
 	/** Options for OpenSBI library */
 	unsigned long options;
 
-	bool storing_vcpu;
 	unsigned long vm_id;
 	unsigned long cpu_id;
-	struct vcpu_state state;
 };
 
 /**

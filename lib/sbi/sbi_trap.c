@@ -128,16 +128,6 @@ static void __noreturn sbi_trap_error(const char *msg, int rc,
 	sbi_hart_hang();
 }
 
-struct sbi_scratch* store_state_in_scratch(struct sbi_trap_regs *regs, struct sbi_trap_info *trap) {
-	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
-	scratch->storing_vcpu = 1;
-
-	sbi_memcpy(&scratch->state.vcpu_state, regs, sizeof(struct sbi_trap_regs));
-	sbi_memcpy(&scratch->state.trap, trap, sizeof(struct sbi_trap_info));
-
-	return scratch;
-}
-
 bool is_csr_fn(struct sbi_trap_info *trap) {
 	ulong insn = trap->tval;
 
@@ -155,11 +145,11 @@ bool is_csr_fn(struct sbi_trap_info *trap) {
 }
 
 
-inline void hide_registers(struct sbi_trap_regs *regs, struct sbi_trap_info *trap, struct sbi_scratch *scratch, bool is_virtual_insn_fault) {
+inline void hide_registers(struct sbi_trap_regs *regs, struct sbi_trap_info *trap, struct vcpu_state *state, bool is_virtual_insn_fault) {
 	ulong insn = trap->tval;
 	bool is_csr = is_csr_fn(trap);
 
-	scratch->state.was_csr_insn = is_csr;
+	state->was_csr_insn = is_csr;
 	ulong saved_value = 0;
 
 	if (is_csr && is_virtual_insn_fault) saved_value = GET_RS1(insn, regs);
@@ -273,10 +263,8 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		/* Update VS-mode SSTATUS CSR */
 		csr_write(CSR_VSSTATUS, vsstatus);
 	} else {
-		struct sbi_scratch *scratch;
-
 		if (prev_virt) {
-			scratch = store_state_in_scratch(regs, trap);
+			struct vcpu_state *state = sm_preserve_cpu(regs, trap);
 
 			csr_write(CSR_MIDELEG, csr_read(CSR_MIDELEG) | MIP_SSIP | MIP_STIP | MIP_SEIP);
 
@@ -289,17 +277,14 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 			case CAUSE_STORE_GUEST_PAGE_FAULT:
 				break;
 			case CAUSE_VIRTUAL_INST_FAULT:
-				hide_registers(regs, trap, scratch, true);
+				hide_registers(regs, trap, state, true);
 				break;
 			default:
-				hide_registers(regs, trap, scratch, false);
+				hide_registers(regs, trap, state, false);
 				break;
 			}
 
-		} else if ((csr_read(CSR_MIDELEG) & (MIP_SSIP | MIP_STIP | MIP_SEIP)) == 0) {
-			sbi_printf("this should never happen!\n");
 		}
-
 
 		/* Update S-mode exception info */
 		csr_write(CSR_STVAL, trap->tval);
@@ -325,10 +310,6 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 
 		/* Clear SIE for S-mode */
 		regs->mstatus &= ~MSTATUS_SIE;
-
-		if (prev_virt) {
-			sm_preserve_cpu(scratch->cpu_id, scratch->vm_id);
-		}
 	}
 
 	return 0;

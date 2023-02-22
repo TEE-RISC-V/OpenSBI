@@ -16,21 +16,13 @@ int sm_init();
 int sm_set_shared(uint64_t paddr_start, uint64_t size);
 
 /**
- * Prepare a CPU (TODO: Details)
+ * Saves CPU details into global memory
  *
- * @param cpu_id id of the vCPU
+ * @param regs the registers to save
+ * @param trap the trap information to save
  * @return 0 on success, error code on failure
  */
-int sm_prepare_cpu(uint64_t cpu_id);
-
-/**
- * Preserve a CPU (TODO: Details)
- *
- * @param cpu_id id of the vCPU
- * @param vm_id  id of the VM
- * @return 0 on success, error code on failure
- */
-int sm_preserve_cpu(uint64_t cpu_id, uint64_t vm_id);
+struct vcpu_state* sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap);
 
 
 /**

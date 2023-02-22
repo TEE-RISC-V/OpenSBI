@@ -45,7 +45,6 @@ struct vcpu_state* get_vcpu_state(unsigned long vm_id, uint64_t cpu_id) {
 
 static inline void prepare_for_vm(struct sbi_trap_regs *regs, struct sbi_scratch *scratch) {
 	regs->mstatus &= ~MSTATUS_TSR;
-	scratch->storing_vcpu = 0;
 
 	regs->extraInfo = 1;
 
@@ -82,25 +81,19 @@ static inline void restore_registers(struct sbi_trap_regs *regs, struct vcpu_sta
 }
 
 
-int sm_prepare_cpu(uint64_t cpu_id) {
+struct vcpu_state* sm_prepare_cpu(uint64_t cpu_id) {
   if (cpu_id >= STORED_STATES) {
-    return 1;
+    return 0;
   }
 
   unsigned long vm_id = get_vm_id();
 
   struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
-  if (scratch->storing_vcpu != 0) {
-    sbi_printf("sm error1 %u %lu %lu %lu %lu\n", scratch->storing_vcpu, scratch->vm_id, scratch->cpu_id, vm_id, cpu_id);
-  }
-
-  scratch->storing_vcpu = 1;
   scratch->vm_id = vm_id;
   scratch->cpu_id = cpu_id;
 
-  sbi_memcpy(&scratch->state, get_vcpu_state(vm_id, cpu_id), sizeof(struct vcpu_state));
-  return 0;
+  return get_vcpu_state(vm_id, cpu_id);
 }
 
 int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs * regs) {
@@ -129,13 +122,12 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
   regs->a1 = csr_read(CSR_STVAL);
   regs->a7 = csr_read(CSR_SCAUSE);
 
-  int ret = sm_prepare_cpu(cpu_id);
+  struct vcpu_state *state = sm_prepare_cpu(cpu_id);
 
   ulong sepc = csr_read(CSR_SEPC);
   struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
-  struct vcpu_state *state = &scratch->state;
-
+  int ret = 0;
 
   switch (state->trap.cause) {
     case CAUSE_FETCH_ACCESS:
@@ -149,7 +141,6 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
     break;
 
     case CAUSE_VIRTUAL_INST_FAULT: {
-      // ulong sepc = csr_read(CSR_SEPC);
       // Supervisor trying to return to next instruction
 
       if (sepc == state->vcpu_state.mepc + 4) {
@@ -206,21 +197,20 @@ trap_error:
   return ret;
 }
 
-int sm_preserve_cpu(uint64_t cpu_id, uint64_t vm_id) {
-  if (cpu_id >= STORED_STATES) {
-    return 1;
-  }
-
+struct vcpu_state* sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap) {
   struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
-  if (scratch->storing_vcpu != 1) {
-    sbi_printf("sm error2 %lu %d\n", ~(1UL << (__riscv_xlen - 1)) & csr_read(CSR_SCAUSE), scratch->storing_vcpu);
+  int cpu_id = scratch->cpu_id;
+  int vm_id = scratch->vm_id;
+
+  if (cpu_id >= STORED_STATES) {
+    return 0;
   }
 
-  scratch->storing_vcpu = 0;
+  struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
 
-  sbi_memcpy(get_vcpu_state(vm_id, cpu_id), &scratch->state, sizeof(struct vcpu_state));
+  sbi_memcpy(&state->vcpu_state, regs, sizeof(struct sbi_trap_regs));
+	sbi_memcpy(&state->trap, trap, sizeof(struct sbi_trap_info));
 
-
-  return 0;
+  return state;
 }
