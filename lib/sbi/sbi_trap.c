@@ -126,7 +126,6 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 #endif
 
 	/* Update hypervisor CSRs if going to HS-mode */
-	// TODO: make this use a fixed constant rather than something that can a CSR modified by the hypervisor
 	if (misa_extension('H') && !next_virt) {
 		hstatus = csr_read(CSR_HSTATUS);
 		if (prev_virt) {
