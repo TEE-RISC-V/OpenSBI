@@ -285,6 +285,7 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		mtinst = csr_read(CSR_MTINST);
 	}
 
+	// This part handles interrupts
 	if (mcause & (1UL << (__riscv_xlen - 1))) {
 		if (sbi_hart_has_extension(sbi_scratch_thishart_ptr(),
 					   SBI_HART_EXT_SMAIA))

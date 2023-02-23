@@ -191,7 +191,7 @@ static int fp_init(struct sbi_scratch *scratch)
 
 static int delegate_traps(struct sbi_scratch *scratch)
 {
-	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
+	// const struct sbi_platform *plat = sbi_platform_ptr(scratch);
 	unsigned long interrupts, exceptions;
 
 	if (!misa_extension('S'))
@@ -204,12 +204,16 @@ static int delegate_traps(struct sbi_scratch *scratch)
 	interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
 	interrupts |= sbi_pmu_irq_bit();
 
-	exceptions = (1U << CAUSE_MISALIGNED_FETCH) | (1U << CAUSE_BREAKPOINT) |
-		     (1U << CAUSE_USER_ECALL);
-	if (sbi_platform_has_mfaults_delegation(plat))
-		exceptions |= (1U << CAUSE_FETCH_PAGE_FAULT) |
-			      (1U << CAUSE_LOAD_PAGE_FAULT) |
-			      (1U << CAUSE_STORE_PAGE_FAULT);
+	// TODO: non-VM exceptions be delegated directly to the supervisor?
+	// Don't delegate anything
+	exceptions = 0;
+
+	// exceptions = (1U << CAUSE_MISALIGNED_FETCH) | (1U << CAUSE_BREAKPOINT) |
+	// 	     (1U << CAUSE_USER_ECALL);
+	// if (sbi_platform_has_mfaults_delegation(plat))
+	// 	exceptions |= (1U << CAUSE_FETCH_PAGE_FAULT) |
+	// 		      (1U << CAUSE_LOAD_PAGE_FAULT) |
+	// 		      (1U << CAUSE_STORE_PAGE_FAULT);
 
 	/*
 	 * If hypervisor extension available then we only handle hypervisor
@@ -219,11 +223,11 @@ static int delegate_traps(struct sbi_scratch *scratch)
 	 * from VS-mode), Guest page faults and Virtual interrupts.
 	 */
 	if (misa_extension('H')) {
-		exceptions |= (1U << CAUSE_VIRTUAL_SUPERVISOR_ECALL);
-		exceptions |= (1U << CAUSE_FETCH_GUEST_PAGE_FAULT);
-		exceptions |= (1U << CAUSE_LOAD_GUEST_PAGE_FAULT);
-		exceptions |= (1U << CAUSE_VIRTUAL_INST_FAULT);
-		exceptions |= (1U << CAUSE_STORE_GUEST_PAGE_FAULT);
+		// exceptions |= (1U << CAUSE_VIRTUAL_SUPERVISOR_ECALL);
+		// exceptions |= (1U << CAUSE_FETCH_GUEST_PAGE_FAULT);
+		// exceptions |= (1U << CAUSE_LOAD_GUEST_PAGE_FAULT);
+		// exceptions |= (1U << CAUSE_VIRTUAL_INST_FAULT);
+		// exceptions |= (1U << CAUSE_STORE_GUEST_PAGE_FAULT);
 	}
 
 	csr_write(CSR_MIDELEG, interrupts);
