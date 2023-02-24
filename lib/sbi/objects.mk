@@ -35,6 +35,8 @@ libsbi-objs-$(CONFIG_SBI_ECALL_PMU) += sbi_ecall_pmu.o
 libsbi-objs-y += sbi_ecall_replace.o
 libsbi-objs-$(CONFIG_SBI_ECALL_VENDOR) += sbi_ecall_vendor.o
 libsbi-objs-$(CONFIG_SBI_ECALL_SM) += sbi_ecall_sm.o
+libsbi-objs-$(CONFIG_SBI_ECALL_SM_CREATE) += sbi_ecall_sm_create.o
+
 
 libsbi-objs-y += sbi_bitmap.o
 libsbi-objs-y += sbi_bitops.o
