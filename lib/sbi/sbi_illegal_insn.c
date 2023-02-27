@@ -150,29 +150,54 @@ static void execute_instruction(const ulong insn) {
 int sbi_illegal_insn_handler(ulong insn, struct sbi_trap_regs *regs)
 {
 	struct sbi_trap_info uptrap;
+#if __riscv_xlen == 32
+	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
+#else
+	bool virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
+#endif
 
 	// Emulate the TVM
+	// TODO: check privilege mode
 	unsigned long mepc = regs->mepc;
-	/* Case1: write satp/hgatp trapped by TVM */
-	if (((((insn >> 20) & 0xfff) == CSR_SATP) || (((insn >> 20) & 0xfff) == CSR_HGATP)) &&
+	/* Case 1: write satp/hgatp trapped by TVM */
+	if (((((insn >> 20) & 0xfff) == CSR_SATP) ||
+	     (((insn >> 20) & 0xfff) == CSR_HGATP)) &&
 	    ((insn & 0x7f) == 0b1110011) && (((insn >> 12) & 0x3) == 0b001)) {
 		unsigned long csr = (insn >> 20) & 0xfff;
+		if (virt && csr == CSR_SATP)
+			csr = CSR_VSATP;
 		unsigned long val =
 			*((unsigned long *)regs + ((insn >> 15) & 0x1f));
 		unsigned long pa = (val & 0x3fffff) << 12;
 		bool enable_mmu	 = ((val >> 60) == 0x8);
-		if ((get_page_num(pa) == 512 * 512) && enable_mmu) { // TODO: more levels
+		if ((get_page_num(pa) == 512 * 512) &&
+		    enable_mmu) { // TODO: more levels
 			if (csr == CSR_SATP)
 				asm volatile("csrrw x0, satp, %0" ::"rK"(val));
+			else if (csr == CSR_VSATP)
+				asm volatile("csrrw x0, vsatp, %0" ::"rK"(val));
 			else
 				asm volatile("csrrw x0, hgatp, %0" ::"rK"(val));
 			csr_write(CSR_MEPC, mepc + 4);
 			regs->mepc = csr_read(CSR_MEPC);
 			return 0;
 		} else { // TODO: delete this after the KVM part is finished
-			sbi_printf("[ERR]: write satp, illegal address 0x%lx (insn 0x%lx)\n", pa, insn);
+			// ulong prev_mode = (regs->mstatus & MSTATUS_MPP) >>
+			// 		  MSTATUS_MPP_SHIFT;
+			// sbi_printf(
+			// 	"[ERR]: write %s, illegal address 0x%lx (insn 0x%lx), virt %d, prev_mode %s\n",
+			// 	csr == CSR_SATP	   ? "satp"
+			// 	: csr == CSR_VSATP ? "vsatp"
+			// 			   : "hgatp",
+			// 	pa, insn, virt,
+			// 	prev_mode == PRV_S   ? "PRV_S"
+			// 	: prev_mode == PRV_U ? "PRV_U"
+			// 			     : "PRV_M");
+
 			if (csr == CSR_SATP)
 				asm volatile("csrrw x0, satp, %0" ::"rK"(val));
+			else if (csr == CSR_VSATP)
+				asm volatile("csrrw x0, vsatp, %0" ::"rK"(val));
 			else
 				asm volatile("csrrw x0, hgatp, %0" ::"rK"(val));
 			csr_write(CSR_MEPC, mepc + 4);
@@ -181,13 +206,18 @@ int sbi_illegal_insn_handler(ulong insn, struct sbi_trap_regs *regs)
 		}
 	}
 	/* Case 2: read satp/hgatp trapped by TVM */
-	if (((((insn >> 20) & 0xfff) == CSR_SATP) || (((insn >> 20) & 0xfff) == CSR_HGATP)) &&
+	if (((((insn >> 20) & 0xfff) == CSR_SATP) ||
+	     (((insn >> 20) & 0xfff) == CSR_HGATP)) &&
 	    ((insn & 0x7f) == 0b1110011) && (((insn >> 12) & 0x3) == 0b010)) {
 		unsigned long csr = (insn >> 20) & 0xfff;
+		if (virt && csr == CSR_SATP)
+			csr = CSR_VSATP;
 		int idx = ((insn >> 7) & 0x1f);
 		unsigned long __tmp;
 		if (csr == CSR_SATP)
 			asm volatile("csrrs %0, satp, x0" : "=r"(__tmp));
+		else if (csr == CSR_VSATP)
+			asm volatile("csrrs %0, vsatp, x0" : "=r"(__tmp));
 		else
 			asm volatile("csrrs %0, hgatp, x0" : "=r"(__tmp));
 		csr_write(CSR_MEPC, mepc + 4);
