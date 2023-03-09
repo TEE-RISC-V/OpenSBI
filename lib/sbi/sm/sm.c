@@ -29,19 +29,18 @@ struct insn_match {
 	unsigned long match;
 };
 
-#define INSN_MATCH_CSRRW	0x1073
-#define INSN_MASK_CSRRW		0x707f
-#define INSN_MATCH_CSRRS	0x2073
-#define INSN_MASK_CSRRS		0x707f
-#define INSN_MATCH_CSRRC	0x3073
-#define INSN_MASK_CSRRC		0x707f
-#define INSN_MATCH_CSRRWI	0x5073
-#define INSN_MASK_CSRRWI	0x707f
-#define INSN_MATCH_CSRRSI	0x6073
-#define INSN_MASK_CSRRSI	0x707f
-#define INSN_MATCH_CSRRCI	0x7073
-#define INSN_MASK_CSRRCI	0x707f
-
+#define INSN_MATCH_CSRRW 0x1073
+#define INSN_MASK_CSRRW 0x707f
+#define INSN_MATCH_CSRRS 0x2073
+#define INSN_MASK_CSRRS 0x707f
+#define INSN_MATCH_CSRRC 0x3073
+#define INSN_MASK_CSRRC 0x707f
+#define INSN_MATCH_CSRRWI 0x5073
+#define INSN_MASK_CSRRWI 0x707f
+#define INSN_MATCH_CSRRSI 0x6073
+#define INSN_MASK_CSRRSI 0x707f
+#define INSN_MATCH_CSRRCI 0x7073
+#define INSN_MASK_CSRRCI 0x707f
 
 static const struct insn_match csr_functions[] = {
 	{
@@ -74,7 +73,6 @@ static const struct insn_match csr_functions[] = {
 	// },
 };
 
-
 #define STORED_STATES 16
 #define VM_BUCKETS 16
 
@@ -103,7 +101,6 @@ void sm_init()
 		sbi_panic("Unable to use PMP to protect SM\n");
 	}
 	sbi_printf("\nSM Init\n\n");
-
 }
 
 bool check_enabled  = false;
@@ -213,18 +210,22 @@ int sm_set_shared(uintptr_t paddr_start, uint64_t size)
 	return 0;
 }
 
-uint64_t get_vm_id() {
-  unsigned long hgatp = csr_read(CSR_HGATP);
+uint64_t get_vm_id()
+{
+	unsigned long hgatp = csr_read(CSR_HGATP);
 
-  return (hgatp | HGATP64_VMID_MASK) >> HGATP_VMID_SHIFT;
+	return (hgatp | HGATP64_VMID_MASK) >> HGATP_VMID_SHIFT;
 }
 
-struct vcpu_state* get_vcpu_state(unsigned long vm_id, uint64_t cpu_id) {
-  // TODO: make this handle "conflicts" properly
-  return &states[vm_id % VM_BUCKETS][cpu_id];
+struct vcpu_state *get_vcpu_state(unsigned long vm_id, uint64_t cpu_id)
+{
+	// TODO: make this handle "conflicts" properly
+	return &states[vm_id % VM_BUCKETS][cpu_id];
 }
 
-static inline void prepare_for_vm(struct sbi_trap_regs *regs, struct vcpu_state *state) {
+static inline void prepare_for_vm(struct sbi_trap_regs *regs,
+				  struct vcpu_state *state)
+{
 	regs->mstatus &= ~MSTATUS_TSR;
 
 	regs->extraInfo = 1;
@@ -232,16 +233,17 @@ static inline void prepare_for_vm(struct sbi_trap_regs *regs, struct vcpu_state 
 	ulong deleg = csr_read(CSR_MIDELEG);
 	csr_write(CSR_MIDELEG, deleg & ~(MIP_SSIP | MIP_STIP | MIP_SEIP));
 
-  ulong exception = csr_read(CSR_MEDELEG);
-  csr_write(CSR_MEDELEG, 0);
+	ulong exception = csr_read(CSR_MEDELEG);
+	csr_write(CSR_MEDELEG, 0);
 
-  state->prev_exception = exception;
+	state->prev_exception = exception;
 
 	return;
 }
 
-
-static inline void restore_registers(struct sbi_trap_regs *regs, struct vcpu_state *state) {
+static inline void restore_registers(struct sbi_trap_regs *regs,
+				     struct vcpu_state *state)
+{
 	ulong orig_insn = state->trap.tval;
 	ulong reg_value = 0;
 
@@ -249,14 +251,14 @@ static inline void restore_registers(struct sbi_trap_regs *regs, struct vcpu_sta
 		reg_value = *REG_PTR(orig_insn, SH_RD, regs);
 	}
 
-	ulong epc = regs->mepc;
-	ulong status = regs->mstatus;
+	ulong epc     = regs->mepc;
+	ulong status  = regs->mstatus;
 	ulong statusH = regs->mstatusH;
 
 	sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
 
-	regs->mepc = epc;
-	regs->mstatus = status;
+	regs->mepc     = epc;
+	regs->mstatus  = status;
 	regs->mstatusH = statusH;
 
 	if (state->was_csr_insn) {
@@ -266,147 +268,150 @@ static inline void restore_registers(struct sbi_trap_regs *regs, struct vcpu_sta
 	return;
 }
 
+struct vcpu_state *sm_prepare_cpu(uint64_t cpu_id)
+{
+	if (cpu_id >= STORED_STATES) {
+		return 0;
+	}
 
-struct vcpu_state* sm_prepare_cpu(uint64_t cpu_id) {
-  if (cpu_id >= STORED_STATES) {
-    return 0;
-  }
+	unsigned long vm_id = get_vm_id();
 
-  unsigned long vm_id = get_vm_id();
+	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
-  struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+	scratch->vm_id	= vm_id;
+	scratch->cpu_id = cpu_id;
 
-  scratch->vm_id = vm_id;
-  scratch->cpu_id = cpu_id;
-
-  return get_vcpu_state(vm_id, cpu_id);
+	return get_vcpu_state(vm_id, cpu_id);
 }
 
-int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs * regs) {
-  if (cpu_id >= STORED_STATES) {
-    return 1;
-  }
+int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs)
+{
+	if (cpu_id >= STORED_STATES) {
+		return 1;
+	}
 
-  // TODO: keep track of creations so that hypervisor cannot abuse
+	// TODO: keep track of creations so that hypervisor cannot abuse
 
-  spin_lock(&global_lock);
+	spin_lock(&global_lock);
 
-  unsigned long vm_id = get_vm_id();
+	unsigned long vm_id = get_vm_id();
 
-  struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
+	struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
 
-  sbi_memcpy(&state->vcpu_state, regs, sizeof(struct sbi_trap_regs));
-  state->vcpu_state.a1 = csr_read(CSR_STVAL);
-  state->vcpu_state.a7 = csr_read(CSR_SCAUSE);
-  state->trap.cause = -1LLU;
+	sbi_memcpy(&state->vcpu_state, regs, sizeof(struct sbi_trap_regs));
+	state->vcpu_state.a1 = csr_read(CSR_STVAL);
+	state->vcpu_state.a7 = csr_read(CSR_SCAUSE);
+	state->trap.cause    = -1LLU;
 
-  SPIN_LOCK_INIT(state->lock);
-  state->running = false;
+	SPIN_LOCK_INIT(state->lock);
+	state->running = false;
 
-  spin_unlock(&global_lock);
+	spin_unlock(&global_lock);
 
-  return 0;
+	return 0;
 }
 
+int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
+{
+	if (cpu_id >= STORED_STATES) {
+		return 1;
+	}
 
-int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs * regs) {
-  if (cpu_id >= STORED_STATES) {
-    return 1;
-  }
+	regs->a1 = csr_read(CSR_STVAL);
+	regs->a7 = csr_read(CSR_SCAUSE);
 
-  regs->a1 = csr_read(CSR_STVAL);
-  regs->a7 = csr_read(CSR_SCAUSE);
+	struct vcpu_state *state = sm_prepare_cpu(cpu_id);
 
-  struct vcpu_state *state = sm_prepare_cpu(cpu_id);
+	spin_lock(&state->lock);
 
-  spin_lock(&state->lock);
+	if (state->running) {
+		sbi_printf("CPU %ld is already running!", cpu_id);
+		return 2;
+	}
 
-  if (state->running) {
-    sbi_printf("CPU %ld is already running!", cpu_id);
-    return 2;
-  }
+	state->running = true;
 
-  state->running = true;
+	ulong sepc = csr_read(CSR_SEPC);
 
-  ulong sepc = csr_read(CSR_SEPC);
+	int ret = 0;
 
-  int ret = 0;
+	switch (state->trap.cause) {
+	case CAUSE_FETCH_ACCESS:
+	case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
+	case CAUSE_FETCH_GUEST_PAGE_FAULT:
+	case CAUSE_LOAD_GUEST_PAGE_FAULT:
+	case CAUSE_STORE_GUEST_PAGE_FAULT: {
+		prepare_for_vm(regs, state);
+	}
 
-  switch (state->trap.cause) {
-    case CAUSE_FETCH_ACCESS:
-    case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
-    case CAUSE_FETCH_GUEST_PAGE_FAULT:
-    case CAUSE_LOAD_GUEST_PAGE_FAULT:
-    case CAUSE_STORE_GUEST_PAGE_FAULT: {
-      prepare_for_vm(regs, state);
-    }
+	break;
 
-    break;
+	case CAUSE_VIRTUAL_INST_FAULT: {
+		// Supervisor trying to return to next instruction
 
-    case CAUSE_VIRTUAL_INST_FAULT: {
-      // Supervisor trying to return to next instruction
+		if (sepc == state->vcpu_state.mepc + 4) {
+			restore_registers(regs, state);
+			prepare_for_vm(regs, state);
+		} else if (sepc == csr_read(CSR_VSTVEC)) {
+			restore_registers(regs, state);
+			prepare_for_vm(regs, state);
+		} else {
+			sbi_printf("BRUH 0x%" PRILX "0x%" PRILX "\n", sepc,
+				   state->vcpu_state.mepc);
+			ret = SBI_EUNKNOWN;
 
-      if (sepc == state->vcpu_state.mepc + 4) {
-        restore_registers(regs, state);
-        prepare_for_vm(regs, state);
-      } else if (sepc == csr_read(CSR_VSTVEC)) {
-        restore_registers(regs, state);
-        prepare_for_vm(regs, state);
-      } else {
-        sbi_printf("BRUH 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
-        ret = SBI_EUNKNOWN;
+			goto trap_error;
+		}
+	} break;
 
-        goto trap_error;
-      }
-    }
-    break;
-    
-    case IRQ_S_SOFT_FLIPPED:
-    case IRQ_S_TIMER_FLIPPED:
-    case IRQ_S_EXT_FLIPPED:
-    case IRQ_S_GEXT_FLIPPED: {
-      if (sepc == state->vcpu_state.mepc) {
-        restore_registers(regs, state);
-        prepare_for_vm(regs, state);
-      } else {
-        sbi_printf("BRUH2 0x%" PRILX "0x%" PRILX "\n", sepc, state->vcpu_state.mepc);
-        ret = SBI_EUNKNOWN;
+	case IRQ_S_SOFT_FLIPPED:
+	case IRQ_S_TIMER_FLIPPED:
+	case IRQ_S_EXT_FLIPPED:
+	case IRQ_S_GEXT_FLIPPED: {
+		if (sepc == state->vcpu_state.mepc) {
+			restore_registers(regs, state);
+			prepare_for_vm(regs, state);
+		} else {
+			sbi_printf("BRUH2 0x%" PRILX "0x%" PRILX "\n", sepc,
+				   state->vcpu_state.mepc);
+			ret = SBI_EUNKNOWN;
 
-        goto trap_error;
-      }
+			goto trap_error;
+		}
 
-    }
+	}
 
-    break;
+	break;
 
-    // Special case when running for the first time
-    case -1LLU: {
-      restore_registers(regs, state);
-      prepare_for_vm(regs, state);
-    }
+	// Special case when running for the first time
+	case -1LLU: {
+		restore_registers(regs, state);
+		prepare_for_vm(regs, state);
+	}
 
-    break;
-  default:
-    sbi_printf("I AM HERE %lu\n", state->trap.cause);
+	break;
+	default:
+		sbi_printf("I AM HERE %lu\n", state->trap.cause);
 
-    sbi_hart_hang();
-    break;
-  }
-
+		sbi_hart_hang();
+		break;
+	}
 
 trap_error:
 
-  spin_unlock(&state->lock);
+	spin_unlock(&state->lock);
 
-  return ret;
+	return ret;
 }
 
-bool is_csr_fn(struct sbi_trap_info *trap) {
+bool is_csr_fn(struct sbi_trap_info *trap)
+{
 	ulong insn = trap->tval;
 
 	bool is_csr = false;
 	const struct insn_match *ifn;
-	for (int i = 0; i < sizeof(csr_functions) / sizeof(struct insn_match); i++) {
+	for (int i = 0; i < sizeof(csr_functions) / sizeof(struct insn_match);
+	     i++) {
 		ifn = &csr_functions[i];
 		if ((insn & ifn->mask) == ifn->match) {
 			is_csr = true;
@@ -417,54 +422,61 @@ bool is_csr_fn(struct sbi_trap_info *trap) {
 	return is_csr;
 }
 
-inline void hide_registers(struct sbi_trap_regs *regs, struct sbi_trap_info *trap, struct vcpu_state *state, bool is_virtual_insn_fault) {
-	ulong insn = trap->tval;
+inline void hide_registers(struct sbi_trap_regs *regs,
+			   struct sbi_trap_info *trap, struct vcpu_state *state,
+			   bool is_virtual_insn_fault)
+{
+	ulong insn  = trap->tval;
 	bool is_csr = is_virtual_insn_fault && is_csr_fn(trap);
 
 	state->was_csr_insn = is_csr;
-	ulong saved_value = 0;
+	ulong saved_value   = 0;
 
-	if (is_csr && is_virtual_insn_fault) saved_value = GET_RS1(insn, regs);
+	if (is_csr && is_virtual_insn_fault)
+		saved_value = GET_RS1(insn, regs);
 
-	ulong epc = regs->mepc;
-	ulong status = regs->mstatus;
+	ulong epc     = regs->mepc;
+	ulong status  = regs->mstatus;
 	ulong statusH = regs->mstatusH;
 
 	sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
 
-	regs->mepc = epc;
-	regs->mstatus = status;
+	regs->mepc     = epc;
+	regs->mstatus  = status;
 	regs->mstatusH = statusH;
 
-	if (is_csr && is_virtual_insn_fault) *REG_PTR(insn, SH_RS1, regs) = saved_value;
+	if (is_csr && is_virtual_insn_fault)
+		*REG_PTR(insn, SH_RS1, regs) = saved_value;
 }
 
-int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap) {
-  struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
+{
+	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
-  int cpu_id = scratch->cpu_id;
-  int vm_id = scratch->vm_id;
+	int cpu_id = scratch->cpu_id;
+	int vm_id  = scratch->vm_id;
 
-  if (cpu_id >= STORED_STATES) {
-    return 1;
-  }
+	if (cpu_id >= STORED_STATES) {
+		return 1;
+	}
 
-  struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
+	struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
 
-  spin_lock(&state->lock);
+	spin_lock(&state->lock);
 
-  if (!state->running) {
-    sbi_printf("CPU %d is not running yet!", cpu_id);
-    return 2;
-  }
+	if (!state->running) {
+		sbi_printf("CPU %d is not running yet!", cpu_id);
+		return 2;
+	}
 
-  sbi_memcpy(&state->vcpu_state, regs, sizeof(struct sbi_trap_regs));
+	sbi_memcpy(&state->vcpu_state, regs, sizeof(struct sbi_trap_regs));
 	sbi_memcpy(&state->trap, trap, sizeof(struct sbi_trap_info));
 
-  state->running = false;
+	state->running = false;
 
-  csr_write(CSR_MIDELEG, csr_read(CSR_MIDELEG) | MIP_SSIP | MIP_STIP | MIP_SEIP);
-  csr_write(CSR_MEDELEG, state->prev_exception);
+	csr_write(CSR_MIDELEG,
+		  csr_read(CSR_MIDELEG) | MIP_SSIP | MIP_STIP | MIP_SEIP);
+	csr_write(CSR_MEDELEG, state->prev_exception);
 
 	switch (trap->cause) {
 	case CAUSE_FETCH_ACCESS:
@@ -481,9 +493,9 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap) {
 		break;
 	}
 
-  spin_unlock(&state->lock);
+	spin_unlock(&state->lock);
 
-  return 0;
+	return 0;
 }
 
 /**
