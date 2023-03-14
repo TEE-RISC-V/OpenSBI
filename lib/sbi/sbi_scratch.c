@@ -24,8 +24,6 @@ typedef struct sbi_scratch *(*hartid2scratch)(ulong hartid, ulong hartindex);
 
 int sbi_scratch_init(struct sbi_scratch *scratch)
 {
-	scratch->storing_vcpu = 0;
-
 	u32 i;
 	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
 

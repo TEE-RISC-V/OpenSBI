@@ -825,8 +825,6 @@
 #define INSN_MASK_FENCE_TSO		0xffffffff
 #define INSN_MATCH_FENCE_TSO		0x8330000f
 
-#define INSN_SRET 270532723
-
 #if __riscv_xlen == 64
 
 /* 64-bit read for VS-stage address translation (RV64) */

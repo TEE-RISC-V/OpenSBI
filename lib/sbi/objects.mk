@@ -25,7 +25,6 @@ carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_SRST) += ecall_srst
 carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_PMU) += ecall_pmu
 carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_LEGACY) += ecall_legacy
 carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_VENDOR) += ecall_vendor
-carray-sbi_ecall_exts-$(CONFIG_SBI_ECALL_SM) += ecall_sm
 
 libsbi-objs-y += sbi_ecall_base.o
 libsbi-objs-$(CONFIG_SBI_ECALL_HSM) += sbi_ecall_hsm.o
@@ -33,7 +32,6 @@ libsbi-objs-$(CONFIG_SBI_ECALL_LEGACY) += sbi_ecall_legacy.o
 libsbi-objs-$(CONFIG_SBI_ECALL_PMU) += sbi_ecall_pmu.o
 libsbi-objs-y += sbi_ecall_replace.o
 libsbi-objs-$(CONFIG_SBI_ECALL_VENDOR) += sbi_ecall_vendor.o
-libsbi-objs-$(CONFIG_SBI_ECALL_SM) += sbi_ecall_sm.o
 
 libsbi-objs-y += sbi_bitmap.o
 libsbi-objs-y += sbi_bitops.o
@@ -60,5 +58,3 @@ libsbi-objs-y += sbi_tlb.o
 libsbi-objs-y += sbi_trap.o
 libsbi-objs-y += sbi_unpriv.o
 libsbi-objs-y += sbi_expected_trap.o
-
-libsbi-objs-y += sm/sm.o

@@ -10,6 +10,3 @@ install/
 # Development friendly files
 tags
 cscope*
-
-# Code editor files
-.vscode/

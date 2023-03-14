@@ -11,7 +11,6 @@
 #define __SBI_SCRATCH_H__
 
 #include <sbi/riscv_asm.h>
-#include <sbi/sbi_trap.h>
 
 /* clang-format off */
 
@@ -38,7 +37,7 @@
 /** Offset of options member in sbi_scratch */
 #define SBI_SCRATCH_OPTIONS_OFFSET		(10 * __SIZEOF_POINTER__)
 /** Offset of extra space in sbi_scratch */
-#define SBI_SCRATCH_EXTRA_SPACE_OFFSET		(sizeof(struct sbi_scratch))
+#define SBI_SCRATCH_EXTRA_SPACE_OFFSET		(11 * __SIZEOF_POINTER__)
 /** Maximum size of sbi_scratch (4KB) */
 #define SBI_SCRATCH_SIZE			(0x1000)
 
@@ -72,11 +71,6 @@ struct sbi_scratch {
 	unsigned long tmp0;
 	/** Options for OpenSBI library */
 	unsigned long options;
-
-	bool storing_vcpu;
-	bool was_csr_insn;
-	struct sbi_trap_regs vcpu_state;
-	struct sbi_trap_info trap;
 };
 
 /**
