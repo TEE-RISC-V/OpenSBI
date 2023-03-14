@@ -15,6 +15,7 @@
 #include <sbi/sbi_domain.h>
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_ipi.h>
+#include <sbi/sbi_trap.h>
 #include <sbi/sbi_irqchip.h>
 #include <sbi/sbi_error.h>
 #include <sbi_utils/irqchip/imsic.h>
@@ -117,7 +118,7 @@ static int imsic_external_irqfn(struct sbi_trap_regs *regs)
 
 		switch (mirq) {
 		case IMSIC_IPI_ID:
-			sbi_ipi_process();
+			sbi_ipi_process(&regs->mstatus);
 			break;
 		default:
 			sbi_printf("%s: unhandled IRQ%d\n",

@@ -73,7 +73,7 @@ void sbi_ipi_clear_smode(void);
 
 int sbi_ipi_send_halt(ulong hmask, ulong hbase);
 
-void sbi_ipi_process(void);
+void sbi_ipi_process(ulong *mstatus);
 
 int sbi_ipi_raw_send(u32 target_hart);
 

@@ -18,6 +18,7 @@
 #include <sbi/sbi_trap.h>
 #include <sbi/sbi_unpriv.h>
 #include <sbi/sbi_console.h>
+#include <sm/sm.h>
 
 typedef int (*illegal_insn_func)(ulong insn, struct sbi_trap_regs *regs);
 
@@ -137,9 +138,141 @@ static const illegal_insn_func illegal_insn_table[32] = {
 	truly_illegal_insn  /* 31 */
 };
 
+static void execute_instruction(const ulong insn) {
+	volatile u32 code_buffer[2] = {0, 0x8067}; // {buffer, ret}
+	code_buffer[0] = insn;
+	// asm volatile("fence.i");
+	void (*func)();
+        func = (void (*)())code_buffer;
+	func();
+}
+
 int sbi_illegal_insn_handler(ulong insn, struct sbi_trap_regs *regs)
 {
 	struct sbi_trap_info uptrap;
+#if __riscv_xlen == 32
+	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
+#else
+	bool virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
+#endif
+
+	// Emulate the TVM
+	// TODO: check privilege mode
+	/* Case 1: write satp/hgatp trapped by TVM */
+	if (((((insn >> 20) & 0xfff) == CSR_SATP) ||
+	     (((insn >> 20) & 0xfff) == CSR_HGATP)) &&
+	    ((insn & 0x7f) == 0b1110011) && (((insn >> 12) & 0x3) == 0b001)) {
+		unsigned long csr = (insn >> 20) & 0xfff;
+		if (virt && csr == CSR_SATP)
+			csr = CSR_VSATP;
+		int idx = ((insn >> 7) & 0x1f);
+		unsigned long __tmp,
+			val = *((unsigned long *)regs + ((insn >> 15) & 0x1f));
+		unsigned long pa = (val & 0x3fffff) << 12;
+		bool enable_mmu	 = ((val >> 60) == 0x8);
+		if (((get_page_num(pa) == 512 * 512) && enable_mmu) ||
+		    !pa) { // TODO: more levels
+			if (csr == CSR_SATP)
+				asm volatile("csrrw %0, satp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			else if (csr == CSR_VSATP)
+				asm volatile("csrrw %0, vsatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			else
+				asm volatile("csrrw %0, hgatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			((unsigned long *)regs)[idx] = __tmp;
+			regs->mepc += 4;
+			return 0;
+		} else { // TODO: delete this after the KVM part is finished
+			ulong prev_mode = (regs->mstatus & MSTATUS_MPP) >>
+					  MSTATUS_MPP_SHIFT;
+			sbi_printf(
+				"[ERR]: write %s, illegal address 0x%lx (insn 0x%lx), virt %d, prev_mode %s\n",
+				csr == CSR_SATP	   ? "satp"
+				: csr == CSR_VSATP ? "vsatp"
+						   : "hgatp",
+				pa, insn, virt,
+				prev_mode == PRV_S   ? "PRV_S"
+				: prev_mode == PRV_U ? "PRV_U"
+						     : "PRV_M");
+
+			if (csr == CSR_SATP)
+				asm volatile("csrrw %0, satp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			else if (csr == CSR_VSATP)
+				asm volatile("csrrw %0, vsatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			else
+				asm volatile("csrrw %0, hgatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			((unsigned long *)regs)[idx] = __tmp;
+			regs->mepc += 4;
+			return 0;
+		}
+	}
+	/* Case 2: read satp/hgatp trapped by TVM */
+	if (((((insn >> 20) & 0xfff) == CSR_SATP) ||
+	     (((insn >> 20) & 0xfff) == CSR_HGATP)) &&
+	    ((insn & 0x7f) == 0b1110011) && (((insn >> 12) & 0x3) == 0b010)) {
+		unsigned long csr = (insn >> 20) & 0xfff;
+		if (virt && csr == CSR_SATP)
+			csr = CSR_VSATP;
+		int idx = ((insn >> 7) & 0x1f);
+		unsigned long __tmp;
+		if (csr == CSR_SATP)
+			asm volatile("csrrs %0, satp, x0" : "=r"(__tmp));
+		else if (csr == CSR_VSATP)
+			asm volatile("csrrs %0, vsatp, x0" : "=r"(__tmp));
+		else
+			asm volatile("csrrs %0, hgatp, x0" : "=r"(__tmp));
+		((unsigned long *)regs)[idx] = __tmp;
+		regs->mepc += 4;
+		return 0;
+	}
+	/* Case 3: sfence.vma trapped by TVM */
+	if ((((insn >> 25) & 0x7f) == 0b0001001) &&
+	    ((insn & 0x7fff) == 0b1110011)) {
+		// execute_instruction(insn);
+		asm volatile("sfence.vma");
+		regs->mepc += 4;
+		return 0;
+	}
+	/* Case 4: sinval.vma trapped by TVM */
+	if ((((insn >> 25) & 0x7f) == 0b0001011) &&
+	    ((insn & 0x7fff) == 0b1110011)) {
+		execute_instruction(insn);
+		regs->mepc += 4;
+		return 0;
+	}
+	/* Case 5: hfence.gvma trapped by TVM */
+	if (((insn & 0x7fff) == 0b1110011) &&
+	    (((insn >> 25) & 0x7f) == 0b0110001)) {
+		execute_instruction(insn);
+		regs->mepc += 4;
+		return 0;
+	}
+	/* Case 6: hinval.gvma trapped by TVM */
+	if (((insn & 0x7fff) == 0b1110011) &&
+	    (((insn >> 25) & 0x7f) == 0b0110011)) {
+		execute_instruction(insn);
+		regs->mepc += 4;
+		return 0;
+	}
+	// End of the TVM trap handler
+	sbi_printf("sbi_illegal_insn_handler: 0x%lx\n", insn);
 
 	/*
 	 * We only deal with 32-bit (or longer) illegal instructions. If we

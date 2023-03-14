@@ -92,6 +92,11 @@
 #define IRQ_S_GEXT			12
 #define IRQ_PMU_OVF			13
 
+#define IRQ_S_SOFT_FLIPPED	(1  | (1UL << (__riscv_xlen - 1)))
+#define IRQ_S_TIMER_FLIPPED	(5 | (1UL << (__riscv_xlen - 1)))
+#define IRQ_S_EXT_FLIPPED	(9 | (1UL << (__riscv_xlen - 1)))
+#define IRQ_S_GEXT_FLIPPED	(12 | (1UL << (__riscv_xlen - 1)))
+
 #define MIP_SSIP			(_UL(1) << IRQ_S_SOFT)
 #define MIP_VSSIP			(_UL(1) << IRQ_VS_SOFT)
 #define MIP_MSIP			(_UL(1) << IRQ_M_SOFT)
@@ -825,6 +830,9 @@
 #define INSN_MASK_FENCE_TSO		0xffffffff
 #define INSN_MATCH_FENCE_TSO		0x8330000f
 
+// #define INSN_SRET 270532723
+#define INSN_SRET 0x10200073
+
 #if __riscv_xlen == 64
 
 /* 64-bit read for VS-stage address translation (RV64) */
@@ -913,6 +921,16 @@
 #define IMM_S(insn)			(((s32)(insn) >> 25 << 5) | \
 					 (s32)(((insn) >> 7) & 0x1f))
 #define MASK_FUNCT3			0x7000
+
+#define PTE_PPN_SHIFT 10
+#define PTE_V     0x001 // Valid
+#define PTE_R     0x002 // Read
+#define PTE_W     0x004 // Write
+#define PTE_X     0x008 // Execute
+#define PTE_U     0x010 // User
+#define PTE_G     0x020 // Global
+#define PTE_A     0x040 // Accessed
+#define PTE_D     0x080 // Dirty
 
 /* clang-format on */
 

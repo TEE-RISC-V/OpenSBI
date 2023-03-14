@@ -34,4 +34,12 @@ config SBI_ECALL_VENDOR
 	bool "Platform-defined vendor extensions"
 	default y
 
+config SBI_ECALL_SM
+	bool "Secure Monitor extension"
+	default y
+
+config SBI_ECALL_SM_CREATE
+	bool "Secure Monitor extension (part)"
+	default y
+
 endmenu

@@ -22,6 +22,9 @@
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
+#include <sbi/sbi_string.h>
+
+#include <sm/sm.h>
 
 static void __noreturn sbi_trap_error(const char *msg, int rc,
 				      ulong mcause, ulong mtval, ulong mtval2,
@@ -75,8 +78,10 @@ static void __noreturn sbi_trap_error(const char *msg, int rc,
 	sbi_hart_hang();
 }
 
+
+
 /**
- * Redirect trap to lower privledge mode (S-mode or U-mode)
+ * Redirect trap to lower privilege mode (S-mode or U-mode)
  *
  * @param regs pointer to register state
  * @param trap pointer to trap details
@@ -86,6 +91,7 @@ static void __noreturn sbi_trap_error(const char *msg, int rc,
 int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		      struct sbi_trap_info *trap)
 {
+
 	ulong hstatus, vsstatus, prev_mode;
 #if __riscv_xlen == 32
 	bool prev_virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
@@ -169,6 +175,10 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		/* Update VS-mode SSTATUS CSR */
 		csr_write(CSR_VSSTATUS, vsstatus);
 	} else {
+		if (prev_virt) {
+			sm_preserve_cpu(regs, trap);
+		}
+
 		/* Update S-mode exception info */
 		csr_write(CSR_STVAL, trap->tval);
 		csr_write(CSR_SEPC, trap->epc);
@@ -206,7 +216,7 @@ static int sbi_trap_nonaia_irq(struct sbi_trap_regs *regs, ulong mcause)
 		sbi_timer_process();
 		break;
 	case IRQ_M_SOFT:
-		sbi_ipi_process();
+		sbi_ipi_process(&regs->mstatus);
 		break;
 	case IRQ_M_EXT:
 		return sbi_irqchip_process(regs);
@@ -229,7 +239,7 @@ static int sbi_trap_aia_irq(struct sbi_trap_regs *regs, ulong mcause)
 			sbi_timer_process();
 			break;
 		case IRQ_M_SOFT:
-			sbi_ipi_process();
+			sbi_ipi_process(&regs->mstatus);
 			break;
 		case IRQ_M_EXT:
 			rc = sbi_irqchip_process(regs);
@@ -262,6 +272,8 @@ static int sbi_trap_aia_irq(struct sbi_trap_regs *regs, ulong mcause)
  */
 struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 {
+	regs->extraInfo = 0;
+
 	int rc = SBI_ENOTSUPP;
 	const char *msg = "trap handler failed";
 	ulong mcause = csr_read(CSR_MCAUSE);
@@ -273,12 +285,25 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		mtinst = csr_read(CSR_MTINST);
 	}
 
+	// This part handles interrupts
 	if (mcause & (1UL << (__riscv_xlen - 1))) {
 		if (sbi_hart_has_extension(sbi_scratch_thishart_ptr(),
 					   SBI_HART_EXT_SMAIA))
 			rc = sbi_trap_aia_irq(regs, mcause);
 		else
 			rc = sbi_trap_nonaia_irq(regs, mcause);
+
+		if (rc) {
+			trap.epc = regs->mepc;
+			trap.cause = mcause;
+			trap.tval = mtval;
+			trap.tval2 = mtval2;
+			trap.tinst = mtinst;
+			trap.gva   = sbi_regs_gva(regs);
+
+			rc = sbi_trap_redirect(regs, &trap);
+		}
+
 		if (rc) {
 			msg = "unhandled local interrupt";
 			goto trap_error;

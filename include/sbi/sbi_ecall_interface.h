@@ -29,6 +29,21 @@
 #define SBI_EXT_HSM				0x48534D
 #define SBI_EXT_SRST				0x53525354
 #define SBI_EXT_PMU				0x504D55
+#define SBI_EXT_SM	0x8000000
+#define SBI_EXT_SM_CREATE	0x8000001
+#define SBI_EXT_SM_RESUME	0x8000002
+
+
+/* SBI function IDs for SM extension */
+#define SBI_EXT_SM_SET_SHARED 0x0
+#define SBI_EXT_SM_BITMAP_AND_HPT_INIT 0x1
+#define SBI_EXT_SM_SET_PTE 0x2
+#define SBI_EXT_SM_MONITOR_INIT 0x3
+
+/* SBI sub-function IDs for SM_SET_PTE */
+#define SBI_EXT_SM_SET_PTE_CLEAR 0x0
+#define SBI_EXT_SM_SET_PTE_MEMCPY 0x1
+#define SBI_EXT_SM_SET_PTE_SET_ONE 0x2
 
 /* SBI function IDs for BASE extension*/
 #define SBI_EXT_BASE_GET_SPEC_VERSION		0x0
