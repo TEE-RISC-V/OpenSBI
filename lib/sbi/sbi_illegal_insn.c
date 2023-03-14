@@ -165,18 +165,29 @@ int sbi_illegal_insn_handler(ulong insn, struct sbi_trap_regs *regs)
 		unsigned long csr = (insn >> 20) & 0xfff;
 		if (virt && csr == CSR_SATP)
 			csr = CSR_VSATP;
-		unsigned long val =
-			*((unsigned long *)regs + ((insn >> 15) & 0x1f));
+		int idx = ((insn >> 7) & 0x1f);
+		unsigned long __tmp,
+			val = *((unsigned long *)regs + ((insn >> 15) & 0x1f));
 		unsigned long pa = (val & 0x3fffff) << 12;
 		bool enable_mmu	 = ((val >> 60) == 0x8);
-		if ((get_page_num(pa) == 512 * 512) &&
-		    enable_mmu) { // TODO: more levels
+		if (((get_page_num(pa) == 512 * 512) && enable_mmu) ||
+		    !pa) { // TODO: more levels
 			if (csr == CSR_SATP)
-				asm volatile("csrrw x0, satp, %0" ::"rK"(val));
+				asm volatile("csrrw %0, satp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
 			else if (csr == CSR_VSATP)
-				asm volatile("csrrw x0, vsatp, %0" ::"rK"(val));
+				asm volatile("csrrw %0, vsatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
 			else
-				asm volatile("csrrw x0, hgatp, %0" ::"rK"(val));
+				asm volatile("csrrw %0, hgatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			((unsigned long *)regs)[idx] = __tmp;
 			regs->mepc += 4;
 			return 0;
 		} else { // TODO: delete this after the KVM part is finished
@@ -193,11 +204,21 @@ int sbi_illegal_insn_handler(ulong insn, struct sbi_trap_regs *regs)
 						     : "PRV_M");
 
 			if (csr == CSR_SATP)
-				asm volatile("csrrw x0, satp, %0" ::"rK"(val));
+				asm volatile("csrrw %0, satp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
 			else if (csr == CSR_VSATP)
-				asm volatile("csrrw x0, vsatp, %0" ::"rK"(val));
+				asm volatile("csrrw %0, vsatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
 			else
-				asm volatile("csrrw x0, hgatp, %0" ::"rK"(val));
+				asm volatile("csrrw %0, hgatp, %1"
+					     : "=r"(__tmp)
+					     : "rK"(val)
+					     : "memory");
+			((unsigned long *)regs)[idx] = __tmp;
 			regs->mepc += 4;
 			return 0;
 		}
