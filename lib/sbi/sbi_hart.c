@@ -22,6 +22,7 @@
 #include <sbi/sbi_pmu.h>
 #include <sbi/sbi_string.h>
 #include <sbi/sbi_trap.h>
+#include <sm/sm.h>
 
 extern void __sbi_expected_trap(void);
 extern void __sbi_expected_trap_hext(void);
@@ -196,6 +197,8 @@ static int delegate_traps(struct sbi_scratch *scratch)
 	if (!misa_extension('S'))
 		/* No delegation possible as mideleg does not exist */
 		return 0;
+
+	csr_write(CSR_MIE, csr_read(CSR_MIE) | MIP_SSIP | MIP_STIP | MIP_SEIP);
 
 	/* Send M-mode interrupts and most exceptions to S-mode */
 	interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
@@ -782,6 +785,9 @@ sbi_hart_switch_mode(unsigned long arg0, unsigned long arg1,
 			csr_write(CSR_UIE, 0);
 		}
 	}
+
+	// TODO: I think this is in the wrong placed, moved to init_coldboot()
+	// sm_init();
 
 	register unsigned long a0 asm("a0") = arg0;
 	register unsigned long a1 asm("a1") = arg1;

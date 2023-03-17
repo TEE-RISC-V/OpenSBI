@@ -26,6 +26,7 @@
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_tlb.h>
 #include <sbi/sbi_version.h>
+#include <sm/sm.h>
 
 #define BANNER                                              \
 	"   ____                    _____ ____ _____\n"     \
@@ -305,6 +306,12 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
 	rc = sbi_ecall_init();
 	if (rc) {
 		sbi_printf("%s: ecall init failed (error %d)\n", __func__, rc);
+		sbi_hart_hang();
+	}
+
+	rc = sm_init();
+	if (rc) {
+		sbi_printf("%s: sm init failed (error %d)\n", __func__, rc);
 		sbi_hart_hang();
 	}
 

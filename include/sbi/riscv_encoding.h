@@ -92,6 +92,11 @@
 #define IRQ_S_GEXT			12
 #define IRQ_PMU_OVF			13
 
+#define IRQ_S_SOFT_FLIPPED	(1  | (1UL << (__riscv_xlen - 1)))
+#define IRQ_S_TIMER_FLIPPED	(5 | (1UL << (__riscv_xlen - 1)))
+#define IRQ_S_EXT_FLIPPED	(9 | (1UL << (__riscv_xlen - 1)))
+#define IRQ_S_GEXT_FLIPPED	(12 | (1UL << (__riscv_xlen - 1)))
+
 #define MIP_SSIP			(_UL(1) << IRQ_S_SOFT)
 #define MIP_VSSIP			(_UL(1) << IRQ_VS_SOFT)
 #define MIP_MSIP			(_UL(1) << IRQ_M_SOFT)
@@ -824,6 +829,9 @@
 
 #define INSN_MASK_FENCE_TSO		0xffffffff
 #define INSN_MATCH_FENCE_TSO		0x8330000f
+
+// #define INSN_SRET 270532723
+#define INSN_SRET 0x10200073
 
 #if __riscv_xlen == 64
 
