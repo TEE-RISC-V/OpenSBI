@@ -13,8 +13,17 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 	int ret = 0;
 
 	switch (funcid) {
-	case SBI_EXT_SM_SET_SHARED:
-		ret = sm_set_shared(regs->a0, regs->a1);
+	case SBI_EXT_SM_SET_GUEST_BOUNCE_BUFFER:
+#if __riscv_xlen == 32
+	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
+#else
+	bool virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
+#endif
+		if (unlikely(!virt)) {
+			ret = -1;
+		} else {
+			ret = sm_set_bounce_buffer(regs->a0, regs->a1);
+		}
 		break;
 	case SBI_EXT_SM_BITMAP_AND_HPT_INIT:
 		ret = bitmap_and_hpt_init(regs->a0, regs->a1, regs->a2,

@@ -36,13 +36,13 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 int monitor_init(uintptr_t *mstatus);
 
 /**
- * Set a contiguous memory region as shared region
+ * Set a contiguous memory region as bounce buffer
  *
- * @param paddr_start physical address of the start of the region
+ * @param gpaddr_start guest physical address of the start of the region
  * @param size size of the region
  * @return 0 on success, negative error code on failure
  */
-int sm_set_shared(uintptr_t paddr_start, uint64_t size);
+int sm_set_bounce_buffer(uintptr_t gpaddr_start, uint64_t size);
 
 /**
  * Saves CPU details into global memory
