@@ -35,7 +35,7 @@
 
 
 /* SBI function IDs for SM extension */
-#define SBI_EXT_SM_SET_SHARED 0x0
+#define SBI_EXT_SM_SET_GUEST_BOUNCE_BUFFER 0x0
 #define SBI_EXT_SM_BITMAP_AND_HPT_INIT 0x1
 #define SBI_EXT_SM_SET_PTE 0x2
 #define SBI_EXT_SM_MONITOR_INIT 0x3

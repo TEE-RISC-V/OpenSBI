@@ -198,15 +198,98 @@ int monitor_init(uintptr_t *mstatus)
 	return 0;
 }
 
-int sm_set_shared(uintptr_t paddr_start, uint64_t size)
+/**
+ * @brief translate guest physical address to host physical address by HGATP
+ *
+ * @param gpa guest physical address
+ * @param pte_size the size of memory that the leaf PTE maps
+ * @return host physical address
+ */
+inline static uintptr_t gpa_to_hpa(uintptr_t gpa, uintptr_t *size)
 {
-	int ret = 0;
+	const uintptr_t hgatp = csr_read(CSR_HGATP);
+#if __riscv_xlen == 32
+	const uintptr_t hgatp_mode = hgatp >> HGATP32_MODE_SHIFT;
+	uintptr_t page_table_ppn   = hgatp & HGATP32_PPN;
+#else
+	const uintptr_t hgatp_mode = hgatp >> HGATP64_MODE_SHIFT;
+	uintptr_t page_table_ppn   = hgatp & HGATP64_PPN;
+#endif
+	unsigned ppn_num, pte_size, vpn_len;
+	if (unlikely(hgatp_mode == 0)) { // Bare
+		ppn_num = 0;
+	} else if (unlikely(hgatp_mode == 1)) { // Sv32x4
+		pte_size = 4;
+		ppn_num	 = 2;
+		vpn_len	 = 10;
+	} else if (8 <= hgatp_mode &&
+		   hgatp_mode <= 10) { // Sv39x4, Sv48x4, Sv57x4
+		// WARNING: Sv57x4's GPA formats are inconsistent in riscv-privileged-20211203
+		pte_size = 8;
+		ppn_num	 = hgatp_mode - 8 + 3;
+		vpn_len	 = 9;
+	} else {
+		sbi_printf("gpa_to_hpa: Unsupported HGATP mode: %ld\n",
+			   hgatp_mode);
+		return 0;
+	}
+	for (int i = ppn_num - 1; i >= 0; i--) {
+		uintptr_t pte;
+		uintptr_t vpn = gpa >> (i * vpn_len + 12);
+		if (i != ppn_num - 1)
+			vpn &= (1 << vpn_len) - 1;
+		uintptr_t offset = pte_size * vpn;
+		if (unlikely(hgatp_mode == 1)) {
+			uint32_t tmp =
+				*(uint32_t *)(page_table_ppn * PAGE_SIZE +
+					      offset);
+			pte = tmp;
+		} else {
+			uint64_t tmp =
+				*(uint64_t *)(page_table_ppn * PAGE_SIZE +
+					      offset);
+			pte = tmp;
+		}
+		if (unlikely(!(pte & PTE_V))) {
+			sbi_printf("gpa_to_hpa: Invalid PTE: 0x%lx\n", pte);
+			return 0;
+		}
+		if (pte & PTE_R || pte & PTE_W || pte & PTE_X) {
+			*size = 1 << (i * vpn_len + 12);
+			return pte_to_phys(pte) + (gpa & (*size - 1));
+		} else {
+			page_table_ppn = pte_to_ppn(pte);
+		}
+	}
+	sbi_printf("gpa_to_hpa: levels more than expected: 0xgpa %lx\n", gpa);
+	return 0;
+}
+
+int sm_set_bounce_buffer(uintptr_t gpaddr_start, uint64_t size)
+{
+	sbi_printf(
+		"SM is trying to set bounce buffer as shared memory(gpa=0x%lx, size=0x%lx)\n",
+		gpaddr_start, size);
+	uintptr_t mapping_size;
 	lock_bitmap;
-	ret = set_shared_range(paddr_start >> PAGE_SHIFT, size >> PAGE_SHIFT);
+	while (size) {
+		uintptr_t hpaddr_start =
+			gpa_to_hpa(gpaddr_start, &mapping_size);
+		if (hpaddr_start == 0) {
+			sbi_printf("sm_set_bounce_buffer: gpa_to_hpa failed\n");
+			return -1;
+		}
+		int ret = set_shared_range(hpaddr_start >> PAGE_SHIFT,
+					   size >> PAGE_SHIFT);
+		if (unlikely(ret))
+			sbi_printf(
+				"sm_set_shared(gpa: 0x%lx, hpa: 0x%lx, 0x%lx) errno: %d\n",
+				gpaddr_start, hpaddr_start, size, ret);
+		gpaddr_start += mapping_size;
+		size -= mapping_size;
+	}
 	unlock_bitmap;
-	if (unlikely(ret))
-		sbi_printf("sm_set_shared(0x%lx, 0x%lx) errno: %d\n",
-			   paddr_start, size, ret);
+	sbi_printf("sm_set_bounce_buffer finished successfully\n");
 	return 0;
 }
 

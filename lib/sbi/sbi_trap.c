@@ -324,6 +324,7 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		rc  = sbi_misaligned_store_handler(mtval, mtval2, mtinst, regs);
 		msg = "misaligned store handler failed";
 		break;
+	case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
 	case CAUSE_SUPERVISOR_ECALL:
 	case CAUSE_MACHINE_ECALL:
 		rc  = sbi_ecall_handler(regs);
