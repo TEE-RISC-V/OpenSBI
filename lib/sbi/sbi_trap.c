@@ -324,7 +324,6 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		rc  = sbi_misaligned_store_handler(mtval, mtval2, mtinst, regs);
 		msg = "misaligned store handler failed";
 		break;
-	case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
 	case CAUSE_SUPERVISOR_ECALL:
 	case CAUSE_MACHINE_ECALL:
 		rc  = sbi_ecall_handler(regs);
@@ -336,6 +335,10 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 			SBI_PMU_FW_ACCESS_LOAD : SBI_PMU_FW_ACCESS_STORE);
 		/* fallthrough */
 	default:
+		if (mcause == CAUSE_VIRTUAL_SUPERVISOR_ECALL && regs->a7 == SBI_EXT_SM) {
+			rc = sbi_ecall_handler(regs);
+			break;
+		}
 		/* If the trap came from S or U mode, redirect it there */
 		trap.epc = regs->mepc;
 		trap.cause = mcause;
