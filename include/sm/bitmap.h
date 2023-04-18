@@ -25,6 +25,7 @@ extern spinlock_t bitmap_lock;
  * @param pfn_start The start page frame
  * @param num The number of pages in the pfn range
  * @return bool on success, negative error code on failure
+ * @note This function is not thread-safe, please use lock_bitmap while using it
  */
 int contain_private_range(uint64_t pfn_start, uint64_t num);
 
@@ -34,6 +35,7 @@ int contain_private_range(uint64_t pfn_start, uint64_t num);
  * @param pfn_start The start page frame
  * @param num The number of pages in the pfn range
  * @return 1 on success, 0 when there exist private pages, negative error code on failure
+ * @note This function is not thread-safe, please use lock_bitmap while using it
  */
 int test_public_shared_range(uint64_t pfn_start, uint64_t num);
 
@@ -47,6 +49,7 @@ int test_public_shared_range(uint64_t pfn_start, uint64_t num);
  * @param pfn_start The start page frame
  * @param num The number of pages in the pfn range
  * @return 0 on success, error code on failure
+ * @note This function is not thread-safe, please use lock_bitmap while using it
  */
 int set_private_range(uint64_t pfn_start, uint64_t num);
 
@@ -56,6 +59,7 @@ int set_private_range(uint64_t pfn_start, uint64_t num);
  * @param pfn_start The start page frame
  * @param num The number of pages in the pfn range
  * @return 0 on success, error code on failure
+ * @note This function is not thread-safe, please use lock_bitmap while using it
  */
 int set_public_range(uint64_t pfn_start, uint64_t num);
 
@@ -65,6 +69,7 @@ int set_public_range(uint64_t pfn_start, uint64_t num);
  * @param pfn_start The start page frame
  * @param num The number of pages in the pfn range
  * @return 0 on success, error code on failure
+ * @note This function is not thread-safe, please use lock_bitmap while using it
  */
 int set_shared_range(uint64_t pfn_start, uint64_t num);
 

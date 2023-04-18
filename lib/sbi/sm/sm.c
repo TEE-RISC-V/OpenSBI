@@ -133,14 +133,6 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 		return r;
 	}
 
-	r = init_reverse_map(0, 0, 0);
-	if (r) {
-		sbi_printf(
-			"bitmap_and_hpt_init: reverse map init failed (error %d)\n",
-			r);
-		return r;
-	}
-
 	r = set_pmp_and_sync(next_pmp_idx++, 0, bitmap_start,
 			     log2roundup(bitmap_size));
 	if (r) {
@@ -160,6 +152,35 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 	}
 
 	sbi_printf("PMP set up for bitmap and HPT Area\n");
+
+	return 0;
+}
+
+int sm_reverse_map_init(uintptr_t reverse_map_start, uint64_t reverse_map_size)
+{
+	sbi_printf(
+		"sm_reverse_map_init: reverse_map_start: 0x%lx, reverse_map_size: 0x%lx\n",
+		(uint64_t)reverse_map_start, reverse_map_size);
+
+	int r = init_reverse_map(reverse_map_start, reverse_map_size,
+				 hpt_end - hpt_start);
+	if (r) {
+		sbi_printf(
+			"sm_reverse_map_init: reverse map init failed (error %d)\n",
+			r);
+		return r;
+	}
+
+#ifdef CONFIG_SBI_ECALL_SM_REVERSE_MAP
+	r = set_pmp_and_sync(next_pmp_idx++, 0, reverse_map_start,
+			     log2roundup(reverse_map_size));
+	if (r) {
+		sbi_printf(
+			"bitmap_and_hpt_init: PMP for reverse map init failed (error %d)\n",
+			r);
+		return r;
+	}
+#endif
 
 	return 0;
 }
@@ -201,6 +222,12 @@ int monitor_init(uintptr_t *mstatus)
 
 	set_tvm_and_sync();
 	*mstatus = csr_read(CSR_MSTATUS);
+
+	if (set_up_reverse_map_from_hpt_area() < 0) {
+		sbi_printf(
+			"monitor_init: set_up_reverse_map_from_hpt_area failed\n");
+		return -1;
+	}
 
 	check_enabled = true;
 	sbi_printf("\nSM Monitor Init\n\n");
@@ -590,12 +617,6 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 	return 0;
 }
 
-/**
- * @brief Get the number of pages covered by a entry
- *
- * @param pte_addr The address of the entry
- * @return negative error code on failure
- */
 int get_page_num(uintptr_t pte_addr)
 {
 	if (unlikely(((hpt_start) <= pte_addr) && ((hpt_pmd_start) > pte_addr)))

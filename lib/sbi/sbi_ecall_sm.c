@@ -15,9 +15,9 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 	switch (funcid) {
 	case SBI_EXT_SM_SET_GUEST_BOUNCE_BUFFER:
 #if __riscv_xlen == 32
-	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
+		bool virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
 #else
-	bool virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
+		bool virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
 #endif
 		if (unlikely(!virt)) {
 			ret = -1;
@@ -35,6 +35,9 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 		break;
 	case SBI_EXT_SM_MONITOR_INIT:
 		ret = monitor_init(&regs->mstatus);
+		break;
+	case SBI_EXT_SM_REVERSE_MAP_INIT:
+		ret = sm_reverse_map_init(regs->a0, regs->a1);
 		break;
 	default:
 		sbi_printf(

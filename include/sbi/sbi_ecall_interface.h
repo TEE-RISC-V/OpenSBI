@@ -39,6 +39,7 @@
 #define SBI_EXT_SM_BITMAP_AND_HPT_INIT 0x1
 #define SBI_EXT_SM_SET_PTE 0x2
 #define SBI_EXT_SM_MONITOR_INIT 0x3
+#define SBI_EXT_SM_REVERSE_MAP_INIT 0x4
 
 /* SBI sub-function IDs for SM_SET_PTE */
 #define SBI_EXT_SM_SET_PTE_CLEAR 0x0

@@ -27,6 +27,17 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 			uintptr_t hpt_pmd_start, uintptr_t hpt_pte_start);
 
 /**
+ * Initialize the reverse map.
+ * 1. Initialize the data structure.
+ * 2. Set up the PMP.
+ *
+ * @param reverse_map_start The start address of the reverse map
+ * @param reverse_map_size The reverse map memory size.
+ * @return 0 on success, negative error code on failure
+ */
+int sm_reverse_map_init(uintptr_t reverse_map_start, uint64_t reverse_map_size);
+
+/**
  * Enable monitoring HPT Area.
  * Also ensure that page tables in HPT Area only have entries inside HPT Area
  *
@@ -52,7 +63,6 @@ int sm_set_bounce_buffer(uintptr_t gpaddr_start, uint64_t size);
  * @return 0 on success, error code on failure
  */
 int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap);
-
 
 /**
  * Create a CPU (TODO: Details)
