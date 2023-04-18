@@ -316,11 +316,11 @@ int sm_set_bounce_buffer(uintptr_t gpaddr_start, uint64_t size)
 			return -1;
 		}
 		int ret = set_shared_range(hpaddr_start >> PAGE_SHIFT,
-					   size >> PAGE_SHIFT);
+					   mapping_size >> PAGE_SHIFT);
 		if (unlikely(ret))
 			sbi_printf(
 				"sm_set_shared(gpa: 0x%lx, hpa: 0x%lx, 0x%lx) errno: %d\n",
-				gpaddr_start, hpaddr_start, size, ret);
+				gpaddr_start, hpaddr_start, mapping_size, ret);
 		gpaddr_start += mapping_size;
 		size -= mapping_size;
 	}
