@@ -13,3 +13,6 @@ cscope*
 
 # Code editor files
 .vscode/
+
+# Patch files
+*.patch
