@@ -4,6 +4,8 @@
 #include <sbi/sbi_types.h>
 #include <sbi/riscv_locks.h>
 
+#define DRAM_BASE 0x80000000 // TODO: get this value dynamically
+
 /**
  * Init the bitmap, set the bitmap memory as the secure memory
  *
@@ -34,14 +36,6 @@ int contain_private_range(uint64_t pfn_start, uint64_t num);
  * @return 1 on success, 0 when there exist private pages, negative error code on failure
  */
 int test_public_shared_range(uint64_t pfn_start, uint64_t num);
-
-/**
- * Invalidate all PTEs in HPT Area that point to the range of physical pages (not atomic).
- * @param pfn_start The start page frame
- * @param num The number of pages in the pfn range
- * @return 0 on success, negative error code on failure
- */
-int unmap_range(uint64_t pfn_start, uint64_t num);
 
 /**
  * Set a range of physical pages, [pfn, pfn + pagenum) to secure pages (not atomic).

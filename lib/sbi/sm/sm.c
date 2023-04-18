@@ -1,5 +1,6 @@
 #include <sm/sm.h>
 #include <sm/bitmap.h>
+#include <sm/reverse_map.h>
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_string.h>
 #include <sbi/sbi_scratch.h>
@@ -128,6 +129,14 @@ int bitmap_and_hpt_init(uintptr_t bitmap_start, uint64_t bitmap_size,
 	if (r) {
 		sbi_printf(
 			"bitmap_and_hpt_init: bitmap init failed (error %d)\n",
+			r);
+		return r;
+	}
+
+	r = init_reverse_map(0, 0, 0);
+	if (r) {
+		sbi_printf(
+			"bitmap_and_hpt_init: reverse map init failed (error %d)\n",
 			r);
 		return r;
 	}
@@ -597,21 +606,6 @@ int get_page_num(uintptr_t pte_addr)
 	if (likely((hpt_pte_start <= pte_addr) && (pte_addr < hpt_end)))
 		return 1;
 	return -1;
-}
-
-/**
- * @brief Set the PTE
- *
- * @param addr physical address of the entry
- * @param pte the new value of the entry
- * @param page_num The number of pages to be set
- * @return 0 on success, negative error code on failure
- */
-inline int set_single_pte(unsigned long *addr, unsigned long pte,
-			  size_t page_num)
-{
-	*((unsigned long *)addr) = pte;
-	return 0;
 }
 
 /**
