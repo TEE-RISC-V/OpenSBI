@@ -387,6 +387,39 @@ static inline void restore_registers(struct sbi_trap_regs *regs,
 	return;
 }
 
+inline void restore_registers_ecall(struct sbi_trap_regs *regs, struct vcpu_state *state)
+{
+	ulong epc     = regs->mepc;
+	ulong status  = regs->mstatus;
+	ulong statusH = regs->mstatusH;
+	ulong a0 = regs->a0;
+	ulong a1 = regs->a1;
+	ulong a2 = regs->a2;
+	ulong a3 = regs->a3;
+	ulong a4 = regs->a4;
+	ulong a5 = regs->a5;
+	ulong a6 = regs->a6;
+	ulong a7 = regs->a7;
+
+	sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
+
+	regs->mepc     = epc;
+	regs->mstatus  = status;
+	regs->mstatusH = statusH;
+
+	regs->a0 = a0; 
+	regs->a1 = a1; 
+	regs->a2 = a2; 
+	regs->a3 = a3; 
+	regs->a4 = a4; 
+	regs->a5 = a5; 
+	regs->a6 = a6; 
+	regs->a7 = a7;
+
+	return;
+}
+
+
 struct vcpu_state *sm_prepare_cpu(uint64_t cpu_id)
 {
 	if (cpu_id >= STORED_STATES) {
@@ -455,8 +488,12 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 	int ret = 0;
 
 	switch (state->trap.cause) {
+	case CAUSE_VIRTUAL_SUPERVISOR_ECALL: {
+		restore_registers_ecall(regs, state);
+		prepare_for_vm(regs, state);
+	}
+	break;
 	case CAUSE_FETCH_ACCESS:
-	case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
 	case CAUSE_FETCH_GUEST_PAGE_FAULT:
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
@@ -568,6 +605,39 @@ inline void hide_registers(struct sbi_trap_regs *regs,
 		*REG_PTR(insn, SH_RS1, regs) = saved_value;
 }
 
+inline void hide_registers_ecall(struct sbi_trap_regs *regs,
+			   struct sbi_trap_info *trap, struct vcpu_state *state)
+{
+	// sbi_printf("ECALL: %lu %lu\n", regs->a6, regs->a7);
+
+	ulong epc     = regs->mepc;
+	ulong status  = regs->mstatus;
+	ulong statusH = regs->mstatusH;
+	ulong a0 = regs->a0;
+	ulong a1 = regs->a1;
+	ulong a2 = regs->a2;
+	ulong a3 = regs->a3;
+	ulong a4 = regs->a4;
+	ulong a5 = regs->a5;
+	ulong a6 = regs->a6;
+	ulong a7 = regs->a7;
+
+	sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+	regs->mepc     = epc;
+	regs->mstatus  = status;
+	regs->mstatusH = statusH;
+
+	regs->a0 = a0; 
+	regs->a1 = a1; 
+	regs->a2 = a2; 
+	regs->a3 = a3; 
+	regs->a4 = a4; 
+	regs->a5 = a5; 
+	regs->a6 = a6; 
+	regs->a7 = a7; 
+}
+
 int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 {
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
@@ -599,7 +669,10 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 
 	switch (trap->cause) {
 	case CAUSE_FETCH_ACCESS:
-	case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
+	case CAUSE_VIRTUAL_SUPERVISOR_ECALL: {
+		hide_registers_ecall(regs, trap, state);
+		break;
+	}
 	case CAUSE_FETCH_GUEST_PAGE_FAULT:
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT:
