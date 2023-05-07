@@ -4,6 +4,7 @@
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_trap.h>
 #include <sm/sm.h>
+#include <sm/mmu.h>
 
 static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 				struct sbi_trap_regs *regs,
@@ -39,6 +40,9 @@ static int sbi_ecall_sm_handler(unsigned long extid, unsigned long funcid,
 	case SBI_EXT_SM_REVERSE_MAP_INIT:
 		ret = sm_reverse_map_init(regs->a0, regs->a1);
 		break;
+	//case SBI_EXT_SM_SET_PRIVATE:
+	//ret = set_private(regs->a0, regs->a1);
+	//	break;
 	default:
 		sbi_printf(
 			"SBI_ENOTSUPP: extid 0x%lx, funcid 0x%lx, a0 0x%lx, a1 0x%lx, a2 0x%lx, a3 0x%lx, a4 0x%lx, a5 0x%lx\n",

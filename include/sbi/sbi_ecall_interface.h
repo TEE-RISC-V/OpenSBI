@@ -40,11 +40,13 @@
 #define SBI_EXT_SM_SET_PTE 0x2
 #define SBI_EXT_SM_MONITOR_INIT 0x3
 #define SBI_EXT_SM_REVERSE_MAP_INIT 0x4
+#define SBI_EXT_SM_SET_PRIVATE 0x5
 
 /* SBI sub-function IDs for SM_SET_PTE */
 #define SBI_EXT_SM_SET_PTE_CLEAR 0x0
 #define SBI_EXT_SM_SET_PTE_MEMCPY 0x1
 #define SBI_EXT_SM_SET_PTE_SET_ONE 0x2
+
 
 /* SBI function IDs for BASE extension*/
 #define SBI_EXT_BASE_GET_SPEC_VERSION		0x0

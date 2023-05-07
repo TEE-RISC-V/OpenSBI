@@ -1,4 +1,5 @@
 #include <sm/sm.h>
+#include <sm/mmu.h>
 #include <sm/bitmap.h>
 #include <sm/reverse_map.h>
 #include <sbi/sbi_console.h>
@@ -456,10 +457,21 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 
 	switch (state->trap.cause) {
 	case CAUSE_FETCH_ACCESS:
-	case CAUSE_VIRTUAL_SUPERVISOR_ECALL:
+	case CAUSE_VIRTUAL_SUPERVISOR_ECALL: {
+		prepare_for_vm(regs, state);
+	} break;
 	case CAUSE_FETCH_GUEST_PAGE_FAULT:
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
+		// sbi_printf("mem access\n");
+		// sbi_printf("a0: 0x%lx\n", regs->a0);
+		// sbi_printf("a1: 0x%lx\n", regs->a1);
+		// sbi_printf("a2: 0x%lx\n", regs->a2);
+		// sbi_printf("a3: 0x%lx\n", regs->a3);
+		// sbi_printf("a4: 0x%lx\n", regs->a4);
+		// sbi_printf("a5: 0x%lx\n", regs->a5);
+		// sbi_printf("a6: 0x%lx\n", regs->a6);
+		// sbi_printf("a7: 0x%lx\n", regs->a7);
 		prepare_for_vm(regs, state);
 	}
 

@@ -25,10 +25,11 @@
 #include <sbi/sbi_string.h>
 
 #include <sm/sm.h>
+#include <sm/mmu.h>
 
-static void __noreturn sbi_trap_error(const char *msg, int rc,
-				      ulong mcause, ulong mtval, ulong mtval2,
-				      ulong mtinst, struct sbi_trap_regs *regs)
+static void __noreturn sbi_trap_error(const char *msg, int rc, ulong mcause,
+				      ulong mtval, ulong mtval2, ulong mtinst,
+				      struct sbi_trap_regs *regs)
 {
 	u32 hartid = current_hartid();
 
@@ -36,8 +37,8 @@ static void __noreturn sbi_trap_error(const char *msg, int rc,
 	sbi_printf("%s: hart%d: mcause=0x%" PRILX " mtval=0x%" PRILX "\n",
 		   __func__, hartid, mcause, mtval);
 	if (misa_extension('H')) {
-		sbi_printf("%s: hart%d: mtval2=0x%" PRILX
-			   " mtinst=0x%" PRILX "\n",
+		sbi_printf("%s: hart%d: mtval2=0x%" PRILX " mtinst=0x%" PRILX
+			   "\n",
 			   __func__, hartid, mtval2, mtinst);
 	}
 	sbi_printf("%s: hart%d: mepc=0x%" PRILX " mstatus=0x%" PRILX "\n",
@@ -78,8 +79,6 @@ static void __noreturn sbi_trap_error(const char *msg, int rc,
 	sbi_hart_hang();
 }
 
-
-
 /**
  * Redirect trap to lower privilege mode (S-mode or U-mode)
  *
@@ -88,8 +87,7 @@ static void __noreturn sbi_trap_error(const char *msg, int rc,
  *
  * @return 0 on success and negative error code on failure
  */
-int sbi_trap_redirect(struct sbi_trap_regs *regs,
-		      struct sbi_trap_info *trap)
+int sbi_trap_redirect(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 {
 
 	ulong hstatus, vsstatus, prev_mode;
@@ -274,9 +272,9 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 {
 	regs->extraInfo = 0;
 
-	int rc = SBI_ENOTSUPP;
+	int rc		= SBI_ENOTSUPP;
 	const char *msg = "trap handler failed";
-	ulong mcause = csr_read(CSR_MCAUSE);
+	ulong mcause	= csr_read(CSR_MCAUSE);
 	ulong mtval = csr_read(CSR_MTVAL), mtval2 = 0, mtinst = 0;
 	struct sbi_trap_info trap;
 
@@ -294,9 +292,9 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 			rc = sbi_trap_nonaia_irq(regs, mcause);
 
 		if (rc) {
-			trap.epc = regs->mepc;
+			trap.epc   = regs->mepc;
 			trap.cause = mcause;
-			trap.tval = mtval;
+			trap.tval  = mtval;
 			trap.tval2 = mtval2;
 			trap.tinst = mtinst;
 			trap.gva   = sbi_regs_gva(regs);
@@ -317,7 +315,7 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		msg = "illegal instruction handler failed";
 		break;
 	case CAUSE_MISALIGNED_LOAD:
-		rc = sbi_misaligned_load_handler(mtval, mtval2, mtinst, regs);
+		rc  = sbi_misaligned_load_handler(mtval, mtval2, mtinst, regs);
 		msg = "misaligned load handler failed";
 		break;
 	case CAUSE_MISALIGNED_STORE:
@@ -331,18 +329,23 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		break;
 	case CAUSE_LOAD_ACCESS:
 	case CAUSE_STORE_ACCESS:
-		sbi_pmu_ctr_incr_fw(mcause == CAUSE_LOAD_ACCESS ?
-			SBI_PMU_FW_ACCESS_LOAD : SBI_PMU_FW_ACCESS_STORE);
+		rc  = sbi_access_handler(mtval, mtval2, mtinst, regs);
+		msg = "access handler failed";
+
+		sbi_pmu_ctr_incr_fw(mcause == CAUSE_LOAD_ACCESS
+					    ? SBI_PMU_FW_ACCESS_LOAD
+					    : SBI_PMU_FW_ACCESS_STORE);
 		/* fallthrough */
 	default:
-		if (mcause == CAUSE_VIRTUAL_SUPERVISOR_ECALL && regs->a7 == SBI_EXT_SM) {
+		if (mcause == CAUSE_VIRTUAL_SUPERVISOR_ECALL &&
+		    regs->a7 == SBI_EXT_SM) {
 			rc = sbi_ecall_handler(regs);
 			break;
 		}
 		/* If the trap came from S or U mode, redirect it there */
-		trap.epc = regs->mepc;
+		trap.epc   = regs->mepc;
 		trap.cause = mcause;
-		trap.tval = mtval;
+		trap.tval  = mtval;
 		trap.tval2 = mtval2;
 		trap.tinst = mtinst;
 		trap.gva   = sbi_regs_gva(regs);
