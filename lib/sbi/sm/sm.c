@@ -337,15 +337,11 @@ uint64_t get_vm_id()
 }
 
 static void mask_hgatp(struct vcpu_state *state) {
-	return;
-
 	state->hgatp = csr_read(CSR_HGATP);
 	csr_write(CSR_HGATP, state->hgatp & HGATP64_VMID_MASK);
 }
 
 static void restore_hgatp(struct vcpu_state *state) {
-	return;
-
 	csr_write(CSR_HGATP, state->hgatp);
 	state->hgatp = 0;
 }
@@ -519,6 +515,7 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 	break;
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
+		csr_write(CSR_VSTVEC,  state->vstvec);
 		prepare_for_vm(regs, state);
 	}
 
@@ -695,10 +692,14 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 		hide_registers(regs, trap, state, false);
 	}
 	break;
-
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
-	break;
-	case CAUSE_STORE_GUEST_PAGE_FAULT:
+	case CAUSE_STORE_GUEST_PAGE_FAULT: {
+		struct sbi_trap_info utrap;
+		ulong insn = sbi_get_insn(regs->mepc, &utrap);
+		state->vstvec = csr_read(CSR_VSTVEC);
+
+		csr_write(CSR_VSTVEC, insn);
+	}
 	break;
 
 	case CAUSE_VIRTUAL_SUPERVISOR_ECALL: {

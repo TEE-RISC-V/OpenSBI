@@ -56,6 +56,7 @@ struct vcpu_state {
 	bool running;
 	ulong prev_exception;
 	ulong hgatp;
+	ulong vstvec;
 	spinlock_t lock;
 };
 
