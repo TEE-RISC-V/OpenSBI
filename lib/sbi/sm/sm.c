@@ -494,7 +494,11 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 	}
 	break;
 	case CAUSE_FETCH_ACCESS:
-	case CAUSE_FETCH_GUEST_PAGE_FAULT:
+	case CAUSE_FETCH_GUEST_PAGE_FAULT: {
+		restore_registers(regs, state);
+		prepare_for_vm(regs, state);
+	}
+	break;
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
 		prepare_for_vm(regs, state);
@@ -673,7 +677,10 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 		hide_registers_ecall(regs, trap, state);
 		break;
 	}
-	case CAUSE_FETCH_GUEST_PAGE_FAULT:
+	case CAUSE_FETCH_GUEST_PAGE_FAULT: {
+		hide_registers(regs, trap, state, false);
+	}
+	break;
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT:
 		break;
