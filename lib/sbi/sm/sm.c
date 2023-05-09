@@ -333,7 +333,7 @@ uint64_t get_vm_id()
 {
 	unsigned long hgatp = csr_read(CSR_HGATP);
 
-	return (hgatp | HGATP64_VMID_MASK) >> HGATP_VMID_SHIFT;
+	return (hgatp & HGATP64_VMID_MASK) >> HGATP_VMID_SHIFT;
 }
 
 struct vcpu_state *get_vcpu_state(unsigned long vm_id, uint64_t cpu_id)
