@@ -673,17 +673,21 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 
 	switch (trap->cause) {
 	case CAUSE_FETCH_ACCESS:
-	case CAUSE_VIRTUAL_SUPERVISOR_ECALL: {
-		hide_registers_ecall(regs, trap, state);
-		break;
-	}
 	case CAUSE_FETCH_GUEST_PAGE_FAULT: {
 		hide_registers(regs, trap, state, false);
 	}
 	break;
+
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
+	break;
 	case CAUSE_STORE_GUEST_PAGE_FAULT:
-		break;
+	break;
+
+	case CAUSE_VIRTUAL_SUPERVISOR_ECALL: {
+		hide_registers_ecall(regs, trap, state);
+	}
+	break;
+
 	case CAUSE_VIRTUAL_INST_FAULT:
 		hide_registers(regs, trap, state, true);
 		break;
