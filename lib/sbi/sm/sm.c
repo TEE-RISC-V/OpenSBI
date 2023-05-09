@@ -336,6 +336,20 @@ uint64_t get_vm_id()
 	return (hgatp & HGATP64_VMID_MASK) >> HGATP_VMID_SHIFT;
 }
 
+static void mask_hgatp(struct vcpu_state *state) {
+	return;
+
+	state->hgatp = csr_read(CSR_HGATP);
+	csr_write(CSR_HGATP, state->hgatp & HGATP64_VMID_MASK);
+}
+
+static void restore_hgatp(struct vcpu_state *state) {
+	return;
+
+	csr_write(CSR_HGATP, state->hgatp);
+	state->hgatp = 0;
+}
+
 struct vcpu_state *get_vcpu_state(unsigned long vm_id, uint64_t cpu_id)
 {
 	// TODO: make this handle "conflicts" properly
@@ -356,6 +370,8 @@ static inline void prepare_for_vm(struct sbi_trap_regs *regs,
 	csr_write(CSR_MEDELEG, 0);
 
 	state->prev_exception = exception;
+
+	restore_hgatp(state);
 
 	return;
 }
@@ -454,6 +470,8 @@ int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs)
 	state->vcpu_state.a1 = csr_read(CSR_STVAL);
 	state->vcpu_state.a7 = csr_read(CSR_SCAUSE);
 	state->trap.cause    = -1LLU;
+
+	mask_hgatp(state);
 
 	SPIN_LOCK_INIT(state->lock);
 	state->running = false;
@@ -695,6 +713,8 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 		hide_registers(regs, trap, state, false);
 		break;
 	}
+
+	mask_hgatp(state);
 
 	spin_unlock(&state->lock);
 
