@@ -448,6 +448,22 @@ struct vcpu_state *sm_prepare_cpu(uint64_t cpu_id)
 	return get_vcpu_state(vm_id, cpu_id);
 }
 
+int sm_prepare_mmio(uint64_t cpu_id) {
+	unsigned long vm_id = get_vm_id();
+
+	struct vcpu_state *state = get_vcpu_state(vm_id, cpu_id);
+
+	spin_lock(&state->lock);
+
+	state->next_mmio = true;
+
+	// sbi_printf("HELLO THERE! %ld\n", cpu_id);
+
+	spin_unlock(&state->lock);
+
+	return 0;
+}
+
 int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs)
 {
 	if (cpu_id >= STORED_STATES) {
@@ -466,6 +482,8 @@ int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs)
 	state->vcpu_state.a1 = csr_read(CSR_STVAL);
 	state->vcpu_state.a7 = csr_read(CSR_SCAUSE);
 	state->trap.cause    = -1LLU;
+
+	state->next_mmio = false;
 
 	mask_hgatp(state);
 
@@ -515,7 +533,11 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 	break;
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
-		csr_write(CSR_VSTVEC,  state->vstvec);
+		if (state->vstvec != 0) {
+			csr_write(CSR_VSTVEC,  state->vstvec);
+			state->vstvec = 0;
+		}
+		
 		prepare_for_vm(regs, state);
 	}
 
@@ -694,11 +716,24 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 	break;
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
-		struct sbi_trap_info utrap;
-		ulong insn = sbi_get_insn(regs->mepc, &utrap);
-		state->vstvec = csr_read(CSR_VSTVEC);
+		if (state->next_mmio) {
+			state->next_mmio = false;
+			// sbi_printf("LOOK AN MMIO!\n");
 
-		csr_write(CSR_VSTVEC, insn);
+			struct sbi_trap_info utrap;
+			ulong insn = sbi_get_insn(regs->mepc, &utrap);
+			state->vstvec = csr_read(CSR_VSTVEC);
+
+			if (utrap.cause) {
+				// sbi_printf("TRAP ERROR!\n");
+			}
+
+			csr_write(CSR_VSTVEC, insn);
+		} else {
+			// sbi_printf("hiding all\n");
+
+			// if (trap->cause == CAUSE_LOAD_GUEST_PAGE_FAULT) hide_registers(regs, trap, state, false);
+		}
 	}
 	break;
 

@@ -54,6 +54,7 @@ struct vcpu_state {
 	struct sbi_trap_info trap;
     bool was_csr_insn;
 	bool running;
+	bool next_mmio;
 	ulong prev_exception;
 	ulong hgatp;
 	ulong vstvec;

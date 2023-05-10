@@ -64,6 +64,8 @@ int sm_set_bounce_buffer(uintptr_t gpaddr_start, uint64_t size);
  */
 int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap);
 
+int sm_prepare_mmio(uint64_t cpu_id);
+
 /**
  * Create a CPU (TODO: Details)
  *
