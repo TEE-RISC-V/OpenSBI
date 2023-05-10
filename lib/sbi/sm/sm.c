@@ -431,6 +431,46 @@ inline void restore_registers_ecall(struct sbi_trap_regs *regs, struct vcpu_stat
 	return;
 }
 
+static inline void restore_registers_mmio_load(struct sbi_trap_regs *regs,
+				     struct vcpu_state *state)
+{
+	ulong htinst = csr_read(CSR_HTINST);
+	ulong insn = state->prev_mmio_insn;
+
+	if (htinst & 0x1) {
+		insn = htinst | INSN_16BIT_MASK;
+	}
+
+	/* Decode length of MMIO and shift */
+	if ((insn & INSN_MASK_LW) == INSN_MATCH_LW) {
+		// Pass
+	}
+#if __riscv_xlen == 64
+	else if ((insn & INSN_MASK_C_LD) == INSN_MATCH_C_LD) {
+		insn = RVC_RS2S(insn) << SH_RD;
+	}
+#endif
+	else if ((insn & INSN_MASK_C_LW) == INSN_MATCH_C_LW) {
+		insn = RVC_RS2S(insn) << SH_RD;
+	}
+	
+
+	ulong epc     = regs->mepc;
+	ulong status  = regs->mstatus;
+	ulong statusH = regs->mstatusH;
+	ulong saved_value = *REG_PTR(insn, SH_RD, regs);
+
+	sbi_memcpy(regs, &state->vcpu_state, sizeof(struct sbi_trap_regs));
+
+	regs->mepc     = epc;
+	regs->mstatus  = status;
+	regs->mstatusH = statusH;
+
+	SET_RD(insn, regs, saved_value);
+
+	return;
+}
+
 
 struct vcpu_state *sm_prepare_cpu(uint64_t cpu_id)
 {
@@ -536,6 +576,7 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 			state->vstvec = 0;
 
 			if (state->trap.cause == CAUSE_STORE_GUEST_PAGE_FAULT) restore_registers(regs, state);
+			else restore_registers_mmio_load(regs, state);
 		} else {
 			restore_registers(regs, state);
 		}
@@ -763,6 +804,10 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 			csr_write(CSR_VSTVEC, insn);
 
 			if (trap->cause == CAUSE_STORE_GUEST_PAGE_FAULT) hide_registers_mmio_store(regs, insn);
+			else {
+				hide_registers(regs, trap, state, false);
+				state->prev_mmio_insn = insn;
+			}
 		} else {
 			hide_registers(regs, trap, state, false);
 		}
