@@ -534,6 +534,8 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 		if (state->vstvec != 0) {
 			csr_write(CSR_VSTVEC, state->vstvec);
 			state->vstvec = 0;
+
+			if (state->trap.cause == CAUSE_STORE_GUEST_PAGE_FAULT) restore_registers(regs, state);
 		} else {
 			restore_registers(regs, state);
 		}
@@ -679,6 +681,42 @@ inline void hide_registers_ecall(struct sbi_trap_regs *regs,
 	regs->a7 = a7; 
 }
 
+inline void hide_registers_mmio_store(struct sbi_trap_regs *regs,
+			   unsigned long insn) {
+	ulong data = GET_RS2(insn, regs);
+
+
+	if ((insn & INSN_MASK_SW) == INSN_MATCH_SW) {
+		// empty case
+	}
+#if __riscv_xlen == 64
+	if ((insn & INSN_MASK_C_SD) == INSN_MATCH_C_SD) {
+		data = GET_RS2S(insn, regs);
+	} else if ((insn & INSN_MASK_C_SDSP) == INSN_MATCH_C_SDSP &&
+		   ((insn >> SH_RD) & 0x1f)) {
+		data = GET_RS2C(insn, regs);
+	}
+#endif
+	else if ((insn & INSN_MASK_C_SW) == INSN_MATCH_C_SW) {
+		data = GET_RS2S(insn, regs);
+	} else if ((insn & INSN_MASK_C_SWSP) == INSN_MATCH_C_SWSP &&
+		   ((insn >> SH_RD) & 0x1f)) {
+		data = GET_RS2C(insn, regs);
+	}
+
+	ulong epc     = regs->mepc;
+	ulong status  = regs->mstatus;
+	ulong statusH = regs->mstatusH;
+
+	// sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+	regs->mepc     = epc;
+	regs->mstatus  = status;
+	regs->mstatusH = statusH;
+
+	regs->a0 = data;
+}
+
 int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 {
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
@@ -723,6 +761,8 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 			state->vstvec = csr_read(CSR_VSTVEC);
 
 			csr_write(CSR_VSTVEC, insn);
+
+			if (trap->cause == CAUSE_STORE_GUEST_PAGE_FAULT) hide_registers_mmio_store(regs, insn);
 		} else {
 			hide_registers(regs, trap, state, false);
 		}
