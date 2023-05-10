@@ -457,8 +457,6 @@ int sm_prepare_mmio(uint64_t cpu_id) {
 
 	state->next_mmio = true;
 
-	// sbi_printf("HELLO THERE! %ld\n", cpu_id);
-
 	spin_unlock(&state->lock);
 
 	return 0;
@@ -534,8 +532,10 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
 		if (state->vstvec != 0) {
-			csr_write(CSR_VSTVEC,  state->vstvec);
+			csr_write(CSR_VSTVEC, state->vstvec);
 			state->vstvec = 0;
+		} else {
+			restore_registers(regs, state);
 		}
 		
 		prepare_for_vm(regs, state);
@@ -718,21 +718,13 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
 		if (state->next_mmio) {
 			state->next_mmio = false;
-			// sbi_printf("LOOK AN MMIO!\n");
-
 			struct sbi_trap_info utrap;
 			ulong insn = sbi_get_insn(regs->mepc, &utrap);
 			state->vstvec = csr_read(CSR_VSTVEC);
 
-			if (utrap.cause) {
-				// sbi_printf("TRAP ERROR!\n");
-			}
-
 			csr_write(CSR_VSTVEC, insn);
 		} else {
-			// sbi_printf("hiding all\n");
-
-			// if (trap->cause == CAUSE_LOAD_GUEST_PAGE_FAULT) hide_registers(regs, trap, state, false);
+			hide_registers(regs, trap, state, false);
 		}
 	}
 	break;
