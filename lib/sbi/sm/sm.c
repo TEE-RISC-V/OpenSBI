@@ -522,6 +522,7 @@ int sm_create_cpu(uint64_t cpu_id, const struct sbi_trap_regs *regs)
 	state->trap.cause    = -1LLU;
 
 	state->next_mmio = false;
+	state->prev_mmio_insn = 0;
 
 	mask_hgatp(state);
 
@@ -571,12 +572,11 @@ int sm_resume_cpu(uint64_t cpu_id, struct sbi_trap_regs *regs)
 	break;
 	case CAUSE_LOAD_GUEST_PAGE_FAULT:
 	case CAUSE_STORE_GUEST_PAGE_FAULT: {
-		if (state->vstvec != 0) {
-			csr_write(CSR_VSTVEC, state->vstvec);
-			state->vstvec = 0;
-
+		if (state->prev_mmio_insn != 0) {
 			if (state->trap.cause == CAUSE_STORE_GUEST_PAGE_FAULT) restore_registers(regs, state);
 			else restore_registers_mmio_load(regs, state);
+
+			state->prev_mmio_insn = 0;
 		} else {
 			restore_registers(regs, state);
 		}
@@ -723,7 +723,7 @@ inline void hide_registers_ecall(struct sbi_trap_regs *regs,
 }
 
 inline void hide_registers_mmio_store(struct sbi_trap_regs *regs,
-			   unsigned long insn) {
+			   struct vcpu_state *state, unsigned long insn) {
 	ulong data = GET_RS2(insn, regs);
 
 
@@ -756,6 +756,27 @@ inline void hide_registers_mmio_store(struct sbi_trap_regs *regs,
 	regs->mstatusH = statusH;
 
 	regs->a0 = data;
+	regs->a1 = insn;
+
+	state->prev_mmio_insn = insn;
+}
+
+
+inline void hide_registers_mmio_load(struct sbi_trap_regs *regs, struct vcpu_state *state, ulong insn)
+{
+	ulong epc     = regs->mepc;
+	ulong status  = regs->mstatus;
+	ulong statusH = regs->mstatusH;
+
+	sbi_memset(regs, 0, sizeof(struct sbi_trap_regs));
+
+	regs->mepc     = epc;
+	regs->mstatus  = status;
+	regs->mstatusH = statusH;
+
+	regs->a1 = insn;
+
+	state->prev_mmio_insn = insn;
 }
 
 int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
@@ -799,15 +820,9 @@ int sm_preserve_cpu(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 			state->next_mmio = false;
 			struct sbi_trap_info utrap;
 			ulong insn = sbi_get_insn(regs->mepc, &utrap);
-			state->vstvec = csr_read(CSR_VSTVEC);
 
-			csr_write(CSR_VSTVEC, insn);
-
-			if (trap->cause == CAUSE_STORE_GUEST_PAGE_FAULT) hide_registers_mmio_store(regs, insn);
-			else {
-				hide_registers(regs, trap, state, false);
-				state->prev_mmio_insn = insn;
-			}
+			if (trap->cause == CAUSE_STORE_GUEST_PAGE_FAULT) hide_registers_mmio_store(regs, state, insn);
+			else hide_registers_mmio_load(regs, state, insn);
 		} else {
 			hide_registers(regs, trap, state, false);
 		}

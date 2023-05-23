@@ -57,7 +57,6 @@ struct vcpu_state {
 	bool next_mmio;
 	ulong prev_exception;
 	ulong hgatp;
-	ulong vstvec;
 	ulong prev_mmio_insn;
 	spinlock_t lock;
 };
