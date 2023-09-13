@@ -4,7 +4,7 @@ RISC-V Open Source Supervisor Binary Interface (OpenSBI)
 OpenSBI Security Monitor
 ---------------------
 
-This repository serves as the security monitor for the Linux kernel (which is located in a separate repository). This repository contains the code to manage page table faults that occur outside the hypervisor. We employ this approach to maintain a monitor operating in M mode, positioned beneath the hypervisor within a Virtual Machine Monitor (VMM) architecture.
+This repository serves as the security monitor for the Linux kernel (which is located in a [separate](https://github.com/TEE-RISC-V/Linux-KVM) repository). This repository contains the code to manage page table faults that occur outside the hypervisor. We employ this approach to maintain a monitor operating in M mode, positioned beneath the hypervisor within a Virtual Machine Monitor (VMM) architecture.
 
 Copyright and License
 ---------------------
