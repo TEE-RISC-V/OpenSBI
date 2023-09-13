@@ -17,6 +17,7 @@ static bool bitmap_initialized = false;
 static page_meta_t *bitmap;
 uint64_t bitmap_len;
 
+// page table entry to page frame number
 inline uint64_t pte_to_pfn(uintptr_t pte)
 {
 	return pte >> PTE_PPN_SHIFT;
@@ -58,6 +59,7 @@ int init_bitmap(uintptr_t paddr_start, uint64_t bitmap_memory_size)
 		return -1;                                                   \
 	}
 
+// returns 1 if contains private page, otherwise 0
 int contain_private_range(uint64_t pfn_start, uint64_t num)
 {
 	check_input_and_update_pfn_start(pfn_start, num);
@@ -74,6 +76,7 @@ int contain_private_range(uint64_t pfn_start, uint64_t num)
 	return 0;
 }
 
+// returns 0 if there exists page that is not public or shared, otherwise 1
 int test_public_shared_range(uintptr_t pfn_start, uintptr_t num)
 {
 	check_input_and_update_pfn_start(pfn_start, num);
@@ -90,6 +93,7 @@ int test_public_shared_range(uintptr_t pfn_start, uintptr_t num)
 	return 1;
 }
 
+// sets range to be private page
 int set_private_range(uint64_t pfn_start, uint64_t num)
 {
 	check_input_and_update_pfn_start(pfn_start, num);
@@ -105,6 +109,7 @@ int set_private_range(uint64_t pfn_start, uint64_t num)
 	return 0;
 }
 
+// sets range to be public page
 int set_public_range(uint64_t pfn_start, uint64_t num)
 {
 	check_input_and_update_pfn_start(pfn_start, num);
@@ -120,6 +125,7 @@ int set_public_range(uint64_t pfn_start, uint64_t num)
 	return 0;
 }
 
+// sets range to be shared page
 int set_shared_range(uint64_t pfn_start, uint64_t num)
 {
 	check_input_and_update_pfn_start(pfn_start, num);
